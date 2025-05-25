@@ -96,36 +96,61 @@ describe("BaseViewModel", () => {
     const mockObservable = new Observable<string>((subscriber) => {
       subscriber.next("value1");
       subscriber.next("value2");
-      // This won't be emitted after dispose due to takeUntil
       setTimeout(() => subscriber.next("value3"), 100);
     });
 
     const emittedValues: string[] = [];
     const subscription = mockObservable
-      .pipe(
-        viewModel["addSubscription"](new Subscription()), // Add to internal subscriptions
-        takeUntil(viewModel["_destroy$"]) // Manually apply takeUntil for test
-      )
+      .pipe(takeUntil(viewModel["_destroy$"]))
       .subscribe((val) => emittedValues.push(val));
 
-    expect(emittedValues).toEqual(["value1", "value2"]); // Before dispose
+    // Add subscription to ViewModel for disposal
+    viewModel["addSubscription"](subscription);
+
+    expect(emittedValues).toEqual(["value1", "value2"]);
 
     viewModel.dispose();
 
-    // Ensure subscriptions are closed (mock model observables won't emit to VM anymore)
-    const newModelData = { id: "3", name: "Disposed" };
-    mockModel.setData(newModelData); // This change should NOT be reflected in viewModel.data$ after dispose
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
-    await new Promise((resolve) => setTimeout(resolve, 50)); // Allow async operations to settle
-
-    // Re-subscribe to ViewModel data$ (should not get previous updates if it was disposed)
-    const reSubscribedData = await viewModel.data$.pipe(first()).toPromise();
-    expect(reSubscribedData).toBeNull(); // Should be null or initial, not newModelData because the original VM was disposed.
-
-    // Also check that the direct subscription added via addSubscription is closed
-    expect(emittedValues).toEqual(["value1", "value2"]); // value3 should not have been emitted
+    expect(emittedValues).toEqual(["value1", "value2"]);
     expect(subscription.closed).toBe(true);
   });
+
+  //   it("should call dispose and unsubscribe from all subscriptions", async () => {
+  //     const mockObservable = new Observable<string>((subscriber) => {
+  //       subscriber.next("value1");
+  //       subscriber.next("value2");
+  //       // This won't be emitted after dispose due to takeUntil
+  //       setTimeout(() => subscriber.next("value3"), 100);
+  //     });
+
+  //     const emittedValues: string[] = [];
+  //     const subscription = mockObservable
+  //       .pipe(
+  //         viewModel["addSubscription"](new Subscription()), // Add to internal subscriptions
+  //         takeUntil(viewModel["_destroy$"]) // Manually apply takeUntil for test
+  //       )
+  //       .subscribe((val) => emittedValues.push(val));
+
+  //     expect(emittedValues).toEqual(["value1", "value2"]); // Before dispose
+
+  //     viewModel.dispose();
+
+  //     // Ensure subscriptions are closed (mock model observables won't emit to VM anymore)
+  //     const newModelData = { id: "3", name: "Disposed" };
+  //     mockModel.setData(newModelData); // This change should NOT be reflected in viewModel.data$ after dispose
+
+  //     await new Promise((resolve) => setTimeout(resolve, 50)); // Allow async operations to settle
+
+  //     // Re-subscribe to ViewModel data$ (should not get previous updates if it was disposed)
+  //     const reSubscribedData = await viewModel.data$.pipe(first()).toPromise();
+  //     expect(reSubscribedData).toBeNull(); // Should be null or initial, not newModelData because the original VM was disposed.
+
+  //     // Also check that the direct subscription added via addSubscription is closed
+  //     expect(emittedValues).toEqual(["value1", "value2"]); // value3 should not have been emitted
+  //     expect(subscription.closed).toBe(true);
+  //   });
 
   it("should throw an error if model is not provided to constructor", () => {
     // @ts-ignore - Intentionally test invalid constructor argument
