@@ -15,6 +15,8 @@ export class BaseViewModel<TModel extends BaseModel<any, any>> {
   protected readonly _destroy$ = new Subject<void>(); // Used with takeUntil for disposal
 
   // Expose observables directly from the injected model
+  //    TODO: check for reason why we need to use @ts-ignore here
+  //   @ts-ignore
   public readonly data$: Observable<TModel["data"]>;
   public readonly isLoading$: Observable<boolean>;
   public readonly error$: Observable<any>;
