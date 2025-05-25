@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ObservableCollection } from "./ObservableCollection";
-import { first, take, toArray } from "rxjs/operators";
+import { first } from "rxjs/operators";
 
 interface TestItem {
   id: string;
