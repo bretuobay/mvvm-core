@@ -3,7 +3,7 @@ import { describe, it, beforeEach, expect, afterEach } from "vitest";
 import { BaseViewModel } from "./BaseViewModel";
 import { BaseModel } from "../models/BaseModel";
 import { z, ZodError } from "zod";
-import { first, takeUntil } from "rxjs/operators";
+import { first, skip, takeUntil } from "rxjs/operators";
 import { Observable } from "rxjs";
 
 // Define a test model and schema
@@ -81,11 +81,9 @@ describe("BaseViewModel", () => {
 
     // Set ZodError, validationErrors$ should update
     mockModel.setError(zodError);
-    expect(await viewModel.validationErrors$.pipe(first()).toPromise()).toBe(
-      //  TDO: Buggy originally expected zodError
-      //   zodError
-      null
-    );
+    expect(
+      await viewModel.validationErrors$.pipe(skip(1), first()).toPromise()
+    ).toBe(zodError);
 
     // Clear error, validationErrors$ should become null again
     mockModel.clearError();

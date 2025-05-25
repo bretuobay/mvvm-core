@@ -1,4 +1,4 @@
-import { ZodSchema } from "zod";
+import { z, ZodSchema } from "zod"; // Ensure 'z' is imported
 import { BaseModel } from "./BaseModel";
 
 /**
@@ -96,8 +96,11 @@ export class RestfulApiModel<
       }
 
       if (this.schema && expectedType !== "none") {
-        // 'none' for delete operations typically
-        return this.validate(data);
+        if (expectedType === "collection") {
+          return z.array(this.schema).parse(data); // Use imported 'z'
+        } else { // 'single'
+          return this.schema.parse(data);
+        }
       }
       return data;
     } catch (err) {

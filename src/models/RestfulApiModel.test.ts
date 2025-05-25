@@ -57,32 +57,45 @@ describe("RestfulApiModel", () => {
   });
 
   describe("fetch method", () => {
-    it.skip("should fetch a collection of users and update data$", async () => {
+    // The problematic test "should fetch a collection of users and update data$" has been removed.
+
+    it("should fetch a collection, update data$, and manage loading states", async () => {
       const users: User[] = [
         { id: "1", name: "Alice", email: "alice@example.com" },
         { id: "2", name: "Bob", email: "bob@example.com" },
       ];
       mockFetcher.mockResolvedValue({
+        ok: true, // Important for RestfulApiModel's internal checks
         json: () => Promise.resolve(users),
         headers: new Headers({ "Content-Type": "application/json" }),
       } as Response);
 
-      const dataPromise = model.data$.pipe(skip(1), first()).toPromise(); // Skip initial null
-      const loadingPromises = [
-        model.isLoading$.pipe(first()).toPromise(), // Initial false
-        model.isLoading$.pipe(skip(1), first()).toPromise(), // true during fetch
-        model.isLoading$.pipe(skip(2), first()).toPromise(), // false after fetch
-      ];
+      const isLoadingHistory: boolean[] = [];
+      const subscription = model.isLoading$.subscribe(value => {
+        isLoadingHistory.push(value);
+      });
 
-      await model.fetch();
+      await model.fetch(); // Perform the fetch operation
 
+      // Assertions
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, {
         method: "GET",
       });
-      expect(await dataPromise).toEqual(users);
-      expect(await Promise.all(loadingPromises)).toEqual([false, true, false]);
+
+      // data$ is a BehaviorSubject. After fetch, its current value should be the fetched users.
+      // pipe(first()) gets the current value of the BehaviorSubject after fetch has completed.
+      expect(await model.data$.pipe(first()).toPromise()).toEqual(users);
+      
+      // isLoading$ sequence:
+      // 1. Initial `false` (from BehaviorSubject construction, captured on subscription)
+      // 2. `true` (when fetch starts)
+      // 3. `false` (when fetch ends in finally block)
+      expect(isLoadingHistory).toEqual([false, true, false]);
+
       expect(await model.error$.pipe(first()).toPromise()).toBeNull();
-    });
+
+      subscription.unsubscribe(); // Clean up subscription
+    }, 10000); // Timeout
 
     it("should fetch a single user by ID and update data$", async () => {
       const user: User = { id: "1", name: "Alice", email: "alice@example.com" };
@@ -120,7 +133,9 @@ describe("RestfulApiModel", () => {
 
       const error = await model.error$.pipe(first()).toPromise();
       expect(error).toBeInstanceOf(z.ZodError);
-      expect((error as ZodError).issues[0].code).toContain("invalid_type");
+      // For z.string().email(), an invalid email format results in "invalid_string"
+      expect((error as ZodError).issues[0].code).toBe(z.ZodIssueCode.invalid_string);
+      expect((error as ZodError).issues[0].validation).toBe("email"); // More specific check
       expect(await model.data$.pipe(first()).toPromise()).toBeNull(); // Data should not be set
     });
   });
