@@ -79,7 +79,7 @@ export class UserViewModel extends BaseViewModel<UserModel> {
 
 3. Using RestfulApiModel for CRUD
 
-
+```typescript
 // src/models/user.api.model.ts
 import { RestfulApiModel, Fetcher } from 'your-library-name/models/RestfulApiModel'; // Adjust import path
 import { User, UserSchema } from './user.model';
@@ -99,6 +99,7 @@ export class UserApiModels extends RestfulApiModel<User[], typeof UserSchema> {
         super('[https://api.yourapp.com](https://api.yourapp.com)', 'users', myCustomFetcher, z.array(UserSchema));
     }
 }
+```
 
 ```typescript
 // Example usage in a component/service
