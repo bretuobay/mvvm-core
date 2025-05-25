@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, expect, vi } from "vitest";
+import { describe, it, beforeEach, expect } from "vitest";
 import { setupCounter } from "./main";
 
 describe("setupCounter", () => {
