@@ -2,12 +2,21 @@ import { BehaviorSubject, Observable } from "rxjs";
 import { ZodSchema } from "zod";
 
 /**
+ * @interface IDisposable
+ * Defines a contract for objects that need to release resources.
+ */
+export interface IDisposable {
+  dispose(): void;
+}
+
+/**
  * @interface IBaseModel
  * Defines the core observables and methods for a BaseModel.
  * @template TData The type of data managed by the model.
  * @template TSchema The Zod schema type for validating the data.
  */
-export interface IBaseModel<TData, TSchema extends ZodSchema<TData>> {
+export interface IBaseModel<TData, TSchema extends ZodSchema<TData>>
+  extends IDisposable {
   readonly data$: Observable<TData | null>;
   readonly isLoading$: Observable<boolean>;
   readonly error$: Observable<any>;
@@ -24,6 +33,7 @@ export interface IBaseModel<TData, TSchema extends ZodSchema<TData>> {
  * @class BaseModel
  * A base class for models in an MVVM architecture, providing core functionalities
  * for data management, loading states, error handling, and Zod validation.
+ * Implements {@link IDisposable} to manage resource cleanup by completing its observables.
  * @template TData The type of data managed by the model.
  * @template TSchema The Zod schema type for validating the data.
  */
@@ -41,6 +51,17 @@ export class BaseModel<TData, TSchema extends ZodSchema<TData>>
   public readonly error$: Observable<any> = this._error$.asObservable();
 
   public readonly schema?: TSchema;
+
+  /**
+   * Cleans up resources used by the model.
+   * This method completes the observables, preventing further emissions
+   * and signaling to subscribers that the observables are closed.
+   */
+  public dispose(): void {
+    this._data$.complete();
+    this._isLoading$.complete();
+    this._error$.complete();
+  }
 
   constructor(initialData: TData | null = null, schema?: TSchema) {
     if (initialData !== null) {

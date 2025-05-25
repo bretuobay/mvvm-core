@@ -54,7 +54,7 @@ Shall provide methods for interacting with models and triggering data operations
 
 Shall enable easy binding to the reactivity systems of various frontend frameworks (React, Angular, Vue) using RxJS observables.
 
-New: Shall include mechanisms for proper subscription disposal to prevent memory leaks.
+New: Shall include mechanisms for proper subscription disposal to prevent memory leaks. (This is addressed by the `IDisposable` pattern implemented in `BaseModel` and `Command`. If a `BaseViewModel` owns its model or commands, it should call their `dispose()` methods in its own `dispose()` method.)
 
 4.2. RESTful API Management
 The library shall provide utilities for managing interactions with RESTful APIs, with models acting as the primary data stores.
@@ -68,6 +68,7 @@ The model shall use this fetcher to perform API calls.
 CRUD Operations:
 
 Models shall support standard CRUD operations (e.g., fetch, create, update, delete) that interact with the configured API endpoints.
+These operations now feature optimistic updates for a smoother user experience, with automatic rollback on error.
 
 These operations shall automatically update the model's data, isLoading, and error observables.
 
@@ -75,7 +76,7 @@ Data Caching and Synchronization:
 
 Models shall manage the lifecycle of fetched data, potentially including basic caching mechanisms to prevent redundant API calls.
 
-Updates from CRUD operations shall be reflected immediately in the model's data observable.
+Updates from CRUD operations (including optimistic ones) shall be reflected immediately in the model's data observable. Rollbacks on API error are automatically handled to maintain data consistency.
 
 4.3. Validation with Zod
 The library shall integrate Zod for robust data validation.
@@ -237,25 +238,27 @@ Methods:
 
 bindToView<T>(observable: Observable<T>): T: A utility method (conceptual) that provides a way to subscribe to an observable and manage its lifecycle within a UI framework's component. (Actual implementation would depend on the framework, e.g., React hooks for useState and useEffect).
 
-New: dispose(): void: A method to clean up all RxJS subscriptions managed by the ViewModel, preventing memory leaks.
+New: dispose(): void: A method to clean up all RxJS subscriptions managed by the ViewModel, preventing memory leaks. (Note: `BaseModel` now has its own `dispose` method. If `BaseViewModel` creates/owns its model instance, it should call `model.dispose()` within its own `dispose` method.)
 
 7.3. RestfulApiModel<TData, TSchema> (Extends BaseModel)
 Constructor: Takes baseUrl: string, endpoint: string, fetcher: (url: string, options?: RequestInit) => Promise<Response>, and schema: TSchema.
+Implements `IDisposable` via `BaseModel` (as `BaseModel` implements `IDisposable`).
 
 Methods:
 
 fetch(id?: string | string[]): Promise<void>: Fetches data from the API. Can fetch a single item or a collection.
 
-create(payload: Partial<TData>): Promise<void>: Sends a POST request to create a new resource.
+create(payload: Partial<TData>): Promise<TData | undefined>: Sends a POST request to create a new resource. Implements optimistic updates. Returns the created item from the server response.
 
-update(id: string, payload: Partial<TData>): Promise<void>: Sends a PUT/PATCH request to update an existing resource.
+update(id: string, payload: Partial<TData>): Promise<TData | undefined>: Sends a PUT/PATCH request to update an existing resource. Implements optimistic updates. Returns the updated item from the server response.
 
-delete(id: string): Promise<void>: Sends a DELETE request to remove a resource.
+delete(id: string): Promise<void>: Sends a DELETE request to remove a resource. Implements optimistic updates.
 
-All methods shall automatically update isLoading$ and error$ and data$ upon success.
+All methods shall automatically update isLoading$ and error$. `data$` reflects optimistic changes immediately, then server confirmation, or rollback on error.
 
 7.4. New: Command Class
 Generics: TParam for the type of parameter passed to execute, TResult for the return type of the command's asynchronous operation.
+Implements `IDisposable`.
 
 Constructor: Takes an executeFn: (param: TParam) => Promise<TResult> and an optional canExecuteFn: (param: TParam) => Observable<boolean> | boolean.
 

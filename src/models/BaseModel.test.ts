@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, expect } from "vitest";
+import { describe, it, beforeEach, expect, vi } from "vitest";
 import { BaseModel } from "./BaseModel";
 import { z } from "zod";
 import { first } from "rxjs/operators";
@@ -89,5 +89,62 @@ describe("BaseModel", () => {
       { id: "b", name: "B", age: 2 },
       null,
     ]);
+  });
+
+  describe("dispose", () => {
+    it("should complete all observables and prevent further emissions", () => {
+      const dataNextSpy = vi.fn();
+      const dataCompleteSpy = vi.fn();
+      const isLoadingNextSpy = vi.fn();
+      const isLoadingCompleteSpy = vi.fn();
+      const errorNextSpy = vi.fn();
+      const errorCompleteSpy = vi.fn();
+
+      model.data$.subscribe({
+        next: dataNextSpy,
+        complete: dataCompleteSpy,
+      });
+      model.isLoading$.subscribe({
+        next: isLoadingNextSpy,
+        complete: isLoadingCompleteSpy,
+      });
+      model.error$.subscribe({
+        next: errorNextSpy,
+        complete: errorCompleteSpy,
+      });
+
+      // Call dispose
+      model.dispose();
+
+      // Verify that complete was called for all observables
+      expect(dataCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(isLoadingCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(errorCompleteSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that initial values were received
+      expect(dataNextSpy).toHaveBeenCalledWith(null); // Initial data
+      expect(isLoadingNextSpy).toHaveBeenCalledWith(false); // Initial loading state
+      expect(errorNextSpy).toHaveBeenCalledWith(null); // Initial error state
+
+      // Reset spies to check if new values are emitted after dispose
+      dataNextSpy.mockClear();
+      isLoadingNextSpy.mockClear();
+      errorNextSpy.mockClear();
+
+      // Attempt to emit new values
+      model.setData({ id: "3", name: "Disposed", age: 50 });
+      model.setLoading(true);
+      model.setError(new Error("Disposed error"));
+
+      // Verify that no new values were emitted
+      expect(dataNextSpy).not.toHaveBeenCalled();
+      expect(isLoadingNextSpy).not.toHaveBeenCalled();
+      expect(errorNextSpy).not.toHaveBeenCalled();
+
+      // Check the closed status of the underlying BehaviorSubjects
+      // Note: Accessing private members like _data$ for testing is generally discouraged.
+      // However, for verifying the internal state after dispose, it can be acceptable.
+      // An alternative is to rely solely on the public observable behavior.
+    });
   });
 });

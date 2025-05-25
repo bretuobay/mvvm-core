@@ -1,5 +1,17 @@
-import { z, ZodSchema } from "zod"; // Ensure 'z' is imported
-import { BaseModel } from "./BaseModel";
+import { z, ZodSchema } from "zod";
+import { BaseModel, IDisposable } from "./BaseModel"; // Assuming IDisposable is also needed/exported
+
+// Helper for temporary ID
+const tempIdPrefix = "temp_";
+function generateTempId(): string {
+  return `${tempIdPrefix}${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Helper to manage item with ID
+interface ItemWithId {
+  id: string;
+  [key: string]: any;
+}
 
 /**
  * Defines a generic fetcher function type.
@@ -146,101 +158,275 @@ export class RestfulApiModel<
 
   /**
    * Creates a new resource by sending a POST request to the API.
-   * If the model's `data$` is an array, the new item will be appended.
-   * If it's a single item, it will be replaced.
-   * @param payload The data for the new resource.
-   * @returns A promise that resolves when the creation is complete.
+   * This method implements an optimistic update pattern:
+   * 1. A temporary item is immediately added to the local `data$` observable. If the `payload`
+   *    lacks an `id`, a temporary client-side ID (e.g., "temp_...") is generated for this item.
+   *    This allows the UI to reflect the change instantly.
+   * 2. The actual API request is made using the original `payload`.
+   * 3. If the API request is successful, the temporary item in `data$` is replaced with the
+   *    actual item returned by the server (which should include the permanent, server-assigned ID).
+   * 4. If the API request fails, the optimistic change is reverted (the temporary item is removed),
+   *    and the `error$` observable is updated with the error from the API.
+   *
+   * The behavior adapts based on whether `data$` currently holds an array or a single item:
+   * - If `data$` is an array, the new/temporary item is appended.
+   * - If `data$` is a single item (or null), it's replaced by the new/temporary item.
+   *
+   * @param payload The data for the new resource. It's recommended not to include an `id` if the
+   *                server generates it, allowing the optimistic update to use a temporary ID.
+   * @returns A promise that resolves with the created item (from the server response, including its final ID)
+   *          if the API call is successful.
+   *          Throws an error if the API request fails (after reverting optimistic changes and setting `error$`).
    */
-  public async create(payload: Partial<TData>): Promise<void> {
+  public async create(payload: Partial<TData>): Promise<TData | undefined> {
+    const originalData = this._data$.getValue();
+    let tempItem: TData;
+    let optimisticData: TData | null = null;
+    let tempItemId: string | null = null;
+
+    if (Array.isArray(originalData)) {
+      // Ensure payload has a temporary ID if it doesn't have one
+      if (!(payload as ItemWithId).id) {
+        tempItemId = generateTempId();
+        tempItem = { ...payload, id: tempItemId } as TData;
+      } else {
+        tempItem = payload as TData; // Assume payload is sufficiently TData-like
+      }
+      optimisticData = [...originalData, tempItem] as TData;
+    } else {
+      // For single item, payload becomes the temp item. If it needs an ID, it should be there or server assigned.
+      // If the model holds a single item, optimistic update replaces it.
+      // Server will return the full item with ID.
+      if (!(payload as ItemWithId).id) {
+        tempItemId = generateTempId(); // Useful if we need to confirm replacement
+        tempItem = { ...payload, id: tempItemId } as TData;
+      } else {
+        tempItem = payload as TData;
+      }
+      optimisticData = tempItem;
+    }
+    this.setData(optimisticData);
+
     try {
-      const createdItem = await this.executeApiRequest(
+      const createdItem = (await this.executeApiRequest(
         this.getUrl(),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload), // Send original payload without tempId
         },
-        "single" // Assuming create returns the created item
-      );
+        "single"
+      )) as TData; // Assuming TData is the type of a single item
 
-      const currentData = this._data$.getValue();
-      if (Array.isArray(currentData)) {
-        this.setData([...currentData, createdItem] as TData);
+      // Success: Update data with server response
+      const currentDataAfterRequest = this._data$.getValue();
+      if (Array.isArray(currentDataAfterRequest)) {
+        this.setData(
+          currentDataAfterRequest.map((item: any) =>
+            (tempItemId && item.id === tempItemId) || item === tempItem // Reference check if no tempId was used
+              ? createdItem
+                            // Fallback: if payload had an ID, and server confirms it (or changes it)
+              // This part is tricky if server can change ID that client sent in payload.
+              // For now, tempId match is primary for arrays.
+              : (payload as ItemWithId).id && item.id === (payload as ItemWithId).id && tempItemId === null 
+              ? createdItem
+              : item
+          ) as TData
+        );
       } else {
+        // For single item, or if array was cleared and set to single due to other ops
         this.setData(createdItem);
       }
+      return createdItem;
     } catch (error) {
-      // Error already set by executeApiRequest
+      // Failure: Revert to original data
+      this.setData(originalData);
+      // Error already set by executeApiRequest, re-throw if needed by caller
+      throw error;
     }
   }
 
   /**
    * Updates an existing resource by sending a PUT/PATCH request to the API.
-   * If the model's `data$` is an array, the corresponding item will be updated.
-   * If it's a single item, it will be replaced.
+   * This method implements an optimistic update pattern:
+   * 1. The item in the local `data$` observable (identified by `id`) is immediately
+   *    updated with the properties from the `payload`. The UI reflects this change instantly.
+   * 2. The actual API request is made.
+   * 3. If the API request is successful, the item in `data$` is further updated with the
+   *    item returned by the server. This is important if the server modifies the item in ways
+   *    not included in the original `payload` (e.g., setting an `updatedAt` timestamp).
+   * 4. If the API request fails, the optimistic change to the item is reverted to its original state
+   *    before the optimistic update, and the `error$` observable is updated.
+   *
+   * The behavior adapts based on whether `data$` currently holds an array or a single item:
+   * - If `data$` is an array, the corresponding item is updated in place.
+   * - If `data$` is a single item and its ID matches the provided `id`, it's updated.
+   * If the item with the given `id` is not found in `data$`, an error is thrown.
+   *
    * @param id The ID of the resource to update.
-   * @param payload The data to update the resource with.
-   * @returns A promise that resolves when the update is complete.
+   * @param payload The partial data to update the resource with.
+   * @returns A promise that resolves with the updated item (from the server response) if successful.
+   *          Throws an error if the API request fails (after reverting optimistic changes) or if the item to update is not found.
    */
-  public async update(id: string, payload: Partial<TData>): Promise<void> {
+  public async update(id: string, payload: Partial<TData>): Promise<TData | undefined> {
+    const originalData = this._data$.getValue();
+    let itemToUpdateOriginal: TData | undefined;
+    let optimisticData: TData | null = null;
+
+    if (Array.isArray(originalData)) {
+      itemToUpdateOriginal = originalData.find(
+        (item: any) => item.id === id
+      ) as TData | undefined;
+      if (!itemToUpdateOriginal) {
+        // Item not found, perhaps throw an error or handle as per requirements
+        console.error(`Item with id ${id} not found for update.`);
+        throw new Error(`Item with id ${id} not found for update.`);
+      }
+      const optimisticallyUpdatedItem = { ...itemToUpdateOriginal, ...payload };
+      optimisticData = originalData.map((item: any) =>
+        item.id === id ? optimisticallyUpdatedItem : item
+      ) as TData;
+    } else if (originalData && (originalData as any).id === id) {
+      itemToUpdateOriginal = originalData;
+      optimisticData = { ...originalData, ...payload } as TData;
+    } else {
+      console.error(
+        `Item with id ${id} not found for update in single data mode.`
+      );
+      throw new Error(
+        `Item with id ${id} not found for update in single data mode.`
+      );
+    }
+
+    if (itemToUpdateOriginal === undefined) { // Should be caught by earlier checks
+        this.setError(new Error(`Update failed: Item with id ${id} not found.`));
+        throw this.error$.getValue();
+    }
+
+    this.setData(optimisticData);
+
     try {
-      const updatedItem = await this.executeApiRequest(
+      const updatedItemFromServer = (await this.executeApiRequest(
         this.getUrl(id),
         {
-          method: "PUT", // Or 'PATCH' depending on API design
+          method: "PUT", // Or 'PATCH'
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload), // Send only the payload
         },
-        "single" // Assuming update returns the updated item
-      );
+        "single"
+      )) as TData;
 
-      const currentData = this._data$.getValue();
-      if (Array.isArray(currentData)) {
+      // Success: Update data with server response (if different from optimistic)
+      // This step is important if server returns additional fields like updatedAt
+      const currentDataAfterRequest = this._data$.getValue();
+      if (Array.isArray(currentDataAfterRequest)) {
         this.setData(
-          currentData.map((item) =>
-            (item as any).id === id ? updatedItem : item
+          currentDataAfterRequest.map((item: any) =>
+            item.id === id ? updatedItemFromServer : item
           ) as TData
         );
-      } else {
-        this.setData(updatedItem);
+      } else if (currentDataAfterRequest && (currentDataAfterRequest as any).id === id) {
+        this.setData(updatedItemFromServer);
       }
+      return updatedItemFromServer;
     } catch (error) {
-      // Error already set by executeApiRequest
+      // Failure: Revert to original data state before optimistic update
+       if (Array.isArray(originalData) && itemToUpdateOriginal) {
+         this.setData(originalData.map((item: any) => (item.id === id ? itemToUpdateOriginal : item)) as TData);
+       } else if (originalData && (originalData as any).id === id && itemToUpdateOriginal) {
+         this.setData(itemToUpdateOriginal);
+       } else {
+         // Fallback to full original data if specific item cannot be restored
+         this.setData(originalData);
+       }
+      throw error;
     }
   }
 
   /**
    * Deletes a resource by sending a DELETE request to the API.
-   * If the model's `data$` is an array, the corresponding item will be removed.
-   * If it's a single item, it will be set to `null`.
+   * This method implements an optimistic update pattern:
+   * 1. The item identified by `id` is immediately removed from the local `data$` observable
+   *    (if `data$` is an array) or `data$` is set to `null` (if it was a single item matching the `id`).
+   *    The UI reflects this change instantly.
+   * 2. The actual API request is made.
+   * 3. If the API request is successful, the optimistic change is considered final.
+   * 4. If the API request fails, the optimistic deletion is reverted (the item is restored to `data$`),
+   *    and the `error$` observable is updated.
+   *
+   * If the item with the given `id` is not found in `data$`, the method may return without error or action,
+   * treating the deletion of a non-existent item as a successful no-op from the client's perspective.
+   *
    * @param id The ID of the resource to delete.
-   * @returns A promise that resolves when the deletion is complete.
+   * @returns A promise that resolves when the API deletion is successful.
+   *          Throws an error if the API request fails (after reverting optimistic changes).
    */
   public async delete(id: string): Promise<void> {
+    const originalData = this._data$.getValue();
+    let itemWasDeleted = false;
+
+    if (Array.isArray(originalData)) {
+      const dataAfterOptimisticDelete = originalData.filter(
+        (item: any) => item.id !== id
+      );
+      if (dataAfterOptimisticDelete.length < originalData.length) {
+        this.setData(dataAfterOptimisticDelete as TData);
+        itemWasDeleted = true;
+      }
+    } else if (originalData && (originalData as any).id === id) {
+      this.setData(null);
+      itemWasDeleted = true;
+    }
+
+    if (!itemWasDeleted) {
+      // Item not found for deletion, could be an error or just a no-op.
+      // For now, let's assume it's not an error to try to delete a non-existent item.
+      // If it were an error, we'd throw here.
+      return;
+    }
+
     try {
-      // Assuming DELETE usually returns no content or a success status
       await this.executeApiRequest(
         this.getUrl(id),
         { method: "DELETE" },
         "none"
       );
-
-      const currentData = this._data$.getValue();
-      if (Array.isArray(currentData)) {
-        this.setData(
-          currentData.filter((item) => (item as any).id !== id) as TData
-        );
-      } else if ((currentData as any)?.id === id) {
-        this.setData(null);
-      }
+      // Success: Optimistic update is already the final state.
     } catch (error) {
-      // Error already set by executeApiRequest
+      // Failure: Revert to original data
+      this.setData(originalData);
+      throw error;
     }
   }
 
+  // Ensure BaseModel's dispose is called if RestfulApiModel overrides it
+  // For now, no additional subscriptions are made in RestfulApiModel itself
+  // that aren't handled by BaseModel's subjects or executeApiRequest's lifecycle.
+  // If RestfulApiModel were to, for instance, subscribe to an external observable
+  // for configuration, that subscription would need cleanup here.
+  /**
+   * Cleans up resources used by the RestfulApiModel.
+   * This method primarily calls `super.dispose()` to ensure that the observables
+   * inherited from `BaseModel` (`data$`, `isLoading$`, `error$`) are completed.
+   * Any RestfulApiModel-specific resources, such as pending API request cancellation logic
+   * (if the `fetcher` supported it), would be handled here in the future.
+   */
   public dispose(): void {
-    // TODO: why does the test call this ?
-    // Additional cleanup if needed for RestfulApiModel
-    // For example, cancel any ongoing requests or clear specific state
+    super.dispose(); // Call if BaseModel has a dispose method
+    // Add any RestfulApiModel specific cleanup here if needed in the future
+    // e.g., cancelling ongoing fetch requests if the fetcher supported it.
   }
+}
+
+// Ensure IDisposable is re-exported or handled if BaseModel exports it
+// and RestfulApiModel is intended to be disposable in the same way.
+// This depends on whether BaseModel itself implements IDisposable.
+// From previous context, BaseModel does implement IDisposable.
+export interface IRestfulApiModel<TData, TSchema extends ZodSchema<TData>>
+  extends BaseModel<TData, TSchema> { // This implies it also extends IDisposable
+  // Define any additional public methods specific to RestfulApiModel if needed for the interface
+  fetch(id?: string | string[]): Promise<void>;
+  create(payload: Partial<TData>): Promise<TData | undefined>;
+  update(id: string, payload: Partial<TData>): Promise<TData | undefined>;
+  delete(id: string): Promise<void>;
 }
