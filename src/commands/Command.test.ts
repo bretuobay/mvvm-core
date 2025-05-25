@@ -42,6 +42,20 @@ describe("Command", () => {
 
     const executionPromise = command.execute(param);
 
+    /**
+     * 1. Subscriptions are synchronous, but state changes are async
+        When you subscribe to isExecuting$ and canExecute$, you immediately get the current value (false and true respectively).
+        When you call command.execute(param), the state changes (isExecuting$ becomes true, canExecute$ becomes false) happen asynchronously (after awaiting canExecute$ and before/after the async function runs).
+        The state change to true for isExecuting$ and to false for canExecute$ may not be captured in the arrays before the expect assertions run, because the execution hasn't yielded to the event loop yet.
+
+        2. The expectations are run immediately after calling command.execute(param) (which returns a Promise), but before the async state changes have a chance to emit and be pushed into your arrays.
+     */
+
+    // Wait for the next tick so BehaviorSubjects emit their new values
+    await Promise.resolve();
+    // or
+    // const result = await executionPromise;
+
     // Expect states during execution
     expect(isExecutingStates).toEqual([false, true]); // Initial false, then true
     // CanExecute should be false while executing
@@ -104,6 +118,7 @@ describe("Command", () => {
 
       const promise = command.execute("param");
 
+      await Promise.resolve(); // Wait for state updates
       expect(canExecuteStates).toEqual([true, false]); // True initially, then false during execution
       await promise;
       expect(canExecuteStates).toEqual([true, false, true]); // Back to true after execution
