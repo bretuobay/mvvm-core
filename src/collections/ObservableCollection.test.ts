@@ -39,9 +39,9 @@ describe("ObservableCollection", () => {
 
       //   const itemsPromise = collection.items$.pipe(toArray()).toPromise(); // Collect all emissions
 
-      const itemsPromise = collection.items$
-        .pipe(take(2), toArray())
-        .toPromise();
+      //   const itemsPromise = collection.items$
+      //     .pipe(take(2), toArray())
+      //     .toPromise();
 
       const itemAddedPromise = collection.itemAdded$.pipe(first()).toPromise();
 
