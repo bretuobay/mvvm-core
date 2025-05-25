@@ -1,10 +1,12 @@
 import { z, ZodSchema } from "zod";
-import { BaseModel, IDisposable } from "./BaseModel"; // Assuming IDisposable is also needed/exported
+import { BaseModel } from "./BaseModel"; // Assuming IDisposable is also needed/exported
 
 // Helper for temporary ID
 const tempIdPrefix = "temp_";
 function generateTempId(): string {
-  return `${tempIdPrefix}${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  return `${tempIdPrefix}${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(2, 9)}`;
 }
 
 // Helper to manage item with ID
@@ -110,7 +112,8 @@ export class RestfulApiModel<
       if (this.schema && expectedType !== "none") {
         if (expectedType === "collection") {
           return z.array(this.schema).parse(data); // Use imported 'z'
-        } else { // 'single'
+        } else {
+          // 'single'
           return this.schema.parse(data);
         }
       }
@@ -186,7 +189,7 @@ export class RestfulApiModel<
 
     if (Array.isArray(originalData)) {
       // Ensure payload has a temporary ID if it doesn't have one
-      if (!(payload as ItemWithId).id) {
+      if (!(payload as unknown as ItemWithId).id) {
         tempItemId = generateTempId();
         tempItem = { ...payload, id: tempItemId } as TData;
       } else {
@@ -197,7 +200,7 @@ export class RestfulApiModel<
       // For single item, payload becomes the temp item. If it needs an ID, it should be there or server assigned.
       // If the model holds a single item, optimistic update replaces it.
       // Server will return the full item with ID.
-      if (!(payload as ItemWithId).id) {
+      if (!(payload as unknown as ItemWithId).id) {
         tempItemId = generateTempId(); // Useful if we need to confirm replacement
         tempItem = { ...payload, id: tempItemId } as TData;
       } else {
@@ -225,10 +228,12 @@ export class RestfulApiModel<
           currentDataAfterRequest.map((item: any) =>
             (tempItemId && item.id === tempItemId) || item === tempItem // Reference check if no tempId was used
               ? createdItem
-                            // Fallback: if payload had an ID, and server confirms it (or changes it)
+              : // Fallback: if payload had an ID, and server confirms it (or changes it)
               // This part is tricky if server can change ID that client sent in payload.
               // For now, tempId match is primary for arrays.
-              : (payload as ItemWithId).id && item.id === (payload as ItemWithId).id && tempItemId === null 
+              (payload as unknown as ItemWithId).id &&
+                item.id === (payload as unknown as ItemWithId).id &&
+                tempItemId === null
               ? createdItem
               : item
           ) as TData
@@ -268,7 +273,10 @@ export class RestfulApiModel<
    * @returns A promise that resolves with the updated item (from the server response) if successful.
    *          Throws an error if the API request fails (after reverting optimistic changes) or if the item to update is not found.
    */
-  public async update(id: string, payload: Partial<TData>): Promise<TData | undefined> {
+  public async update(
+    id: string,
+    payload: Partial<TData>
+  ): Promise<TData | undefined> {
     const originalData = this._data$.getValue();
     let itemToUpdateOriginal: TData | undefined;
     let optimisticData: TData | null = null;
@@ -298,9 +306,10 @@ export class RestfulApiModel<
       );
     }
 
-    if (itemToUpdateOriginal === undefined) { // Should be caught by earlier checks
-        this.setError(new Error(`Update failed: Item with id ${id} not found.`));
-        throw this.error$.getValue();
+    if (itemToUpdateOriginal === undefined) {
+      // Should be caught by earlier checks
+      this.setError(new Error(`Update failed: Item with id ${id} not found.`));
+      throw this._error$.getValue();
     }
 
     this.setData(optimisticData);
@@ -325,20 +334,31 @@ export class RestfulApiModel<
             item.id === id ? updatedItemFromServer : item
           ) as TData
         );
-      } else if (currentDataAfterRequest && (currentDataAfterRequest as any).id === id) {
+      } else if (
+        currentDataAfterRequest &&
+        (currentDataAfterRequest as any).id === id
+      ) {
         this.setData(updatedItemFromServer);
       }
       return updatedItemFromServer;
     } catch (error) {
       // Failure: Revert to original data state before optimistic update
-       if (Array.isArray(originalData) && itemToUpdateOriginal) {
-         this.setData(originalData.map((item: any) => (item.id === id ? itemToUpdateOriginal : item)) as TData);
-       } else if (originalData && (originalData as any).id === id && itemToUpdateOriginal) {
-         this.setData(itemToUpdateOriginal);
-       } else {
-         // Fallback to full original data if specific item cannot be restored
-         this.setData(originalData);
-       }
+      if (Array.isArray(originalData) && itemToUpdateOriginal) {
+        this.setData(
+          originalData.map((item: any) =>
+            item.id === id ? itemToUpdateOriginal : item
+          ) as TData
+        );
+      } else if (
+        originalData &&
+        (originalData as any).id === id &&
+        itemToUpdateOriginal
+      ) {
+        this.setData(itemToUpdateOriginal);
+      } else {
+        // Fallback to full original data if specific item cannot be restored
+        this.setData(originalData);
+      }
       throw error;
     }
   }
@@ -423,7 +443,8 @@ export class RestfulApiModel<
 // This depends on whether BaseModel itself implements IDisposable.
 // From previous context, BaseModel does implement IDisposable.
 export interface IRestfulApiModel<TData, TSchema extends ZodSchema<TData>>
-  extends BaseModel<TData, TSchema> { // This implies it also extends IDisposable
+  extends BaseModel<TData, TSchema> {
+  // This implies it also extends IDisposable
   // Define any additional public methods specific to RestfulApiModel if needed for the interface
   fetch(id?: string | string[]): Promise<void>;
   create(payload: Partial<TData>): Promise<TData | undefined>;
