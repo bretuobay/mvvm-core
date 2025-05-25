@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, expect, afterEach, vi } from "vitest";
 
 import { RestfulApiModel, Fetcher } from "./RestfulApiModel";
+import { BaseModel } from "./BaseModel"; // Import BaseModel
 import { z } from "zod";
 import { first, skip } from "rxjs/operators";
 import { ZodError } from "zod/v4";
@@ -141,181 +142,469 @@ describe("RestfulApiModel", () => {
   });
 
   describe("create method", () => {
-    const newUser: User = {
-      id: "3",
-      name: "Charlie",
+    const serverUser: User = { // Renamed from newUser to distinguish from payload
+      id: "server-3", // Server assigns a real ID
+      name: "Charlie Server",
       email: "charlie@example.com",
     };
-    const payload: Partial<User> = {
-      name: "Charlie",
+    const payload: Partial<User> = { // Payload might not have ID
+      name: "Charlie Server",
       email: "charlie@example.com",
     };
+     const payloadWithClientId: Partial<User> & { id: string } = {
+      id: "client-temp-123",
+      name: "Charlie Client ID",
+      email: "charlie.client@example.com",
+    };
+    const serverUserFromClientPayload: User = {
+        id: "server-assigned-from-client-payload",
+        name: payloadWithClientId.name,
+        email: payloadWithClientId.email,
+    }
+
+
+    let initialCollectionData: User[];
 
     beforeEach(() => {
-      // Set initial data as a collection for testing create/update/delete on collections
-      model.setData([
+      initialCollectionData = [
         { id: "1", name: "Alice", email: "alice@example.com" },
         { id: "2", name: "Bob", email: "bob@example.com" },
-      ]);
+      ];
+      model.setData([...initialCollectionData]); // Use a copy
+      // Default mock fetcher for successful creation
       mockFetcher.mockResolvedValue({
-        json: () => Promise.resolve(newUser),
+        ok: true,
+        json: () => Promise.resolve(serverUser),
         headers: new Headers({ "Content-Type": "application/json" }),
       } as Response);
     });
 
-    it("should create a new user and add to data$ collection", async () => {
-      await model.create(payload);
+    it("should optimistically add item with temp ID, then update with server response", async () => {
+      const dataEmissions: (User | User[] | null)[] = [];
+      model.data$.subscribe((data) => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null)); // Deep copy for arrays/objects
+
+      // Use a payload without an ID, so a temp ID is generated
+      const createPayload: Partial<User> = { name: "Charlie Temp", email: "temp@example.com" };
+      const serverResponseUser: User = { id: "server-gen-id-1", name: createPayload.name!, email: createPayload.email! };
+      mockFetcher.mockResolvedValue({ // Specific mock for this test
+        ok: true,
+        json: () => Promise.resolve(serverResponseUser),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const promise = model.create(createPayload);
+
+      // 1. Initial data (already captured by subscribe if not skipped)
+      // 2. Optimistic update
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(2); // Initial + Optimistic
+      const optimisticData = dataEmissions[dataEmissions.length -1] as User[];
+      expect(optimisticData.length).toBe(initialCollectionData.length + 1);
+      const tempItem = optimisticData.find(u => u.name === createPayload.name);
+      expect(tempItem).toBeDefined();
+      expect(tempItem!.id.startsWith("temp_")).toBe(true);
+
+
+      await promise;
+
+      // 3. Final update from server
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial + Optimistic + Server
+      const finalData = dataEmissions[dataEmissions.length - 1] as User[];
+      expect(finalData.length).toBe(initialCollectionData.length + 1);
+      expect(finalData.find(u => u.id === serverResponseUser.id)).toEqual(serverResponseUser);
+      expect(finalData.find(u => u.id === tempItem!.id)).toBeUndefined(); // Temp item should be replaced
 
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(createPayload),
       });
-      const currentData = await model.data$.pipe(first()).toPromise();
-      expect(currentData).toEqual([
-        { id: "1", name: "Alice", email: "alice@example.com" },
-        { id: "2", name: "Bob", email: "bob@example.com" },
-        newUser,
-      ]);
       expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
       expect(await model.error$.pipe(first()).toPromise()).toBeNull();
     });
+    
+    it("should optimistically add item with client-provided ID, then update with server response", async () => {
+      const dataEmissions: (User | User[] | null)[] = [];
+      model.data$.subscribe((data) => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
 
-    it("should replace data$ if it was a single item", async () => {
+      mockFetcher.mockResolvedValue({ // Specific mock for this test
+        ok: true,
+        json: () => Promise.resolve(serverUserFromClientPayload),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const promise = model.create(payloadWithClientId);
+      
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(2);
+      const optimisticData = dataEmissions[dataEmissions.length -1] as User[];
+      expect(optimisticData.length).toBe(initialCollectionData.length + 1);
+      const tempItem = optimisticData.find(u => u.id === payloadWithClientId.id);
+      expect(tempItem).toEqual(payloadWithClientId);
+
+      await promise;
+      
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3);
+      const finalData = dataEmissions[dataEmissions.length - 1] as User[];
+      expect(finalData.length).toBe(initialCollectionData.length + 1);
+      expect(finalData.find(u => u.id === serverUserFromClientPayload.id)).toEqual(serverUserFromClientPayload);
+      // If server can change the ID, the client-provided ID might be gone
+      if (payloadWithClientId.id !== serverUserFromClientPayload.id) {
+        expect(finalData.find(u => u.id === payloadWithClientId.id)).toBeUndefined();
+      }
+    });
+
+
+    it("should revert optimistic add from collection if create fails", async () => {
+      const dataEmissions: (User | User[] | null)[] = [];
+      model.data$.subscribe((data) => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
+      const createError = new Error("Creation failed");
+      mockFetcher.mockRejectedValue(createError);
+
+      // Use a payload without an ID
+      const createPayloadFail: Partial<User> = { name: "Fail User", email: "fail@example.com" };
+      
+      await expect(model.create(createPayloadFail)).rejects.toThrow(createError);
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Reverted
+      const optimisticData = dataEmissions[dataEmissions.length - 2] as User[];
+      expect(optimisticData.length).toBe(initialCollectionData.length + 1);
+      expect(optimisticData.find(u => u.name === createPayloadFail.name)).toBeDefined();
+      
+      const finalData = dataEmissions[dataEmissions.length - 1] as User[];
+      expect(finalData).toEqual(initialCollectionData); // Should be back to original
+      expect(await model.error$.pipe(first()).toPromise()).toBe(createError);
+    });
+
+    it("should replace data$ with server response if initial data was single item/null", async () => {
       const singleItemModel = new RestfulApiModel<User, typeof UserSchema>(
         baseUrl,
         endpoint,
         mockFetcher,
         UserSchema,
-        { id: "initial", name: "Initial", email: "initial@test.com" }
+        null // Initial data is null
       );
+      mockFetcher.mockResolvedValue({ // Ensure fresh mock for this model
+        ok: true,
+        json: () => Promise.resolve(serverUser),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const dataEmissionsSingle: (User | null)[] = [];
+      singleItemModel.data$.subscribe(data => dataEmissionsSingle.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
       await singleItemModel.create(payload);
-      expect(await singleItemModel.data$.pipe(first()).toPromise()).toEqual(
-        newUser
-      );
-      singleItemModel.dispose(); // Clean up model created in test
+      
+      // Initial (null), Optimistic (payload with temp ID), Server response
+      expect(dataEmissionsSingle.length).toBeGreaterThanOrEqual(3);
+      const optimisticSingle = dataEmissionsSingle[dataEmissionsSingle.length - 2] as User;
+      expect(optimisticSingle.name).toBe(payload.name);
+      // If payload had no ID, temp ID was generated
+      if (!payload.id) expect(optimisticSingle.id.startsWith("temp_")).toBe(true);
+
+
+      expect(await singleItemModel.data$.pipe(first()).toPromise()).toEqual(serverUser);
+      singleItemModel.dispose();
     });
 
-    it("should set error$ if create fails", async () => {
-      const createError = new Error("Creation failed");
-      mockFetcher.mockRejectedValue(createError);
+    it("should revert optimistic set of single item if create fails", async () => {
+      const initialSingleUser = { id: "single-initial", name: "Initial Single", email: "single@example.com" };
+      const singleItemModelFail = new RestfulApiModel<User, typeof UserSchema>(
+        baseUrl,
+        endpoint,
+        mockFetcher,
+        UserSchema,
+        initialSingleUser 
+      );
+      const createError = new Error("Single Create Failed");
+      mockFetcher.mockRejectedValue(createError); // Mock failure for this model
 
-      await model.create(payload);
+      const dataEmissionsSingleFail: (User | null)[] = [];
+      singleItemModelFail.data$.subscribe(data => dataEmissionsSingleFail.push(data ? JSON.parse(JSON.stringify(data)) : null));
+      
+      await expect(singleItemModelFail.create(payload)).rejects.toThrow(createError);
 
-      expect(await model.error$.pipe(first()).toPromise()).toBe(createError);
-      expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
+      expect(dataEmissionsSingleFail.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Reverted
+      const optimisticSingleFailed = dataEmissionsSingleFail[dataEmissionsSingleFail.length - 2] as User;
+      expect(optimisticSingleFailed.name).toBe(payload.name); // Check it was optimistically set
+
+      expect(await singleItemModelFail.data$.pipe(first()).toPromise()).toEqual(initialSingleUser); // Reverted
+      expect(await singleItemModelFail.error$.pipe(first()).toPromise()).toBe(createError);
+      singleItemModelFail.dispose();
     });
   });
 
   describe("update method", () => {
-    const updatedUser: User = {
+    const serverUpdatedUser: User = { // Server may return more fields or confirm changes
       id: "1",
-      name: "Alice Updated",
+      name: "Alice Updated By Server",
       email: "alice.updated@example.com",
     };
-    const payload: Partial<User> = {
-      name: "Alice Updated",
-      email: "alice.updated@example.com",
+    const updatePayload: Partial<User> = {
+      name: "Alice Updated By Server",
+      // email might not be in payload if only name is changed
     };
+    let initialCollectionDataUpdate: User[];
+    let originalUserInCollection: User;
 
     beforeEach(() => {
-      model.setData([
-        { id: "1", name: "Alice", email: "alice@example.com" },
+      originalUserInCollection = { id: "1", name: "Alice Original", email: "alice@example.com" };
+      initialCollectionDataUpdate = [
+        JSON.parse(JSON.stringify(originalUserInCollection)), // Use a deep copy
         { id: "2", name: "Bob", email: "bob@example.com" },
-      ]);
+      ];
+      model.setData([...initialCollectionDataUpdate]);
+      
+      // Default mock for successful update
       mockFetcher.mockResolvedValue({
-        json: () => Promise.resolve(updatedUser),
+        ok: true,
+        json: () => Promise.resolve(serverUpdatedUser),
         headers: new Headers({ "Content-Type": "application/json" }),
       } as Response);
     });
 
-    it("should update an existing user in data$ collection", async () => {
-      await model.update("1", payload);
+    it("should optimistically update item in collection, then confirm with server response", async () => {
+      const dataEmissions: (User[] | null)[] = [];
+      model.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
+      const promise = model.update("1", updatePayload);
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(2); // Initial, Optimistic
+      const optimisticData = dataEmissions[dataEmissions.length - 1] as User[];
+      const updatedOptimisticItem = optimisticData.find(u => u.id === "1");
+      expect(updatedOptimisticItem?.name).toBe(updatePayload.name);
+      // Email should be original if not in payload
+      expect(updatedOptimisticItem?.email).toBe(originalUserInCollection.email);
+
+
+      await promise;
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Server
+      const finalData = dataEmissions[dataEmissions.length -1] as User[];
+      expect(finalData.find(u => u.id === "1")).toEqual(serverUpdatedUser);
 
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}/1`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
       });
-      const currentData = await model.data$.pipe(first()).toPromise();
-      expect(currentData).toEqual([
-        updatedUser,
-        { id: "2", name: "Bob", email: "bob@example.com" },
-      ]);
-      expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
-      expect(await model.error$.pipe(first()).toPromise()).toBeNull();
+    });
+    
+    it("should revert optimistic update in collection if update fails", async () => {
+      const dataEmissions: (User[] | null)[] = [];
+      model.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
+      const updateError = new Error("Update failed");
+      mockFetcher.mockRejectedValue(updateError);
+
+      await expect(model.update("1", updatePayload)).rejects.toThrow(updateError);
+      
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Reverted
+      const revertedData = dataEmissions[dataEmissions.length - 1] as User[];
+      expect(revertedData.find(u => u.id === "1")).toEqual(originalUserInCollection);
+      expect(await model.error$.pipe(first()).toPromise()).toBe(updateError);
     });
 
-    it("should replace data$ if it was a single item", async () => {
+
+    it("should optimistically update single item, then confirm with server response", async () => {
+      const initialSingleUser = { id: "single-1", name: "Single Original", email: "single@example.com" };
+      const serverSingleUpdated = { ...initialSingleUser, name: "Single Updated by Server" };
+      const singleUpdatePayload = { name: "Single Updated by Server" };
+
       const singleItemModel = new RestfulApiModel<User, typeof UserSchema>(
+        baseUrl,
+        endpoint,
+        mockFetcher, // This mockFetcher will be reused, make sure it's set for success
+        UserSchema,
+        JSON.parse(JSON.stringify(initialSingleUser))
+      );
+      // Ensure mockFetcher is set for successful update for this specific model
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(serverSingleUpdated),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const dataEmissions: (User | null)[] = [];
+      singleItemModel.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+      
+      await singleItemModel.update(initialSingleUser.id, singleUpdatePayload);
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Server
+      const optimisticData = dataEmissions[dataEmissions.length - 2];
+      expect(optimisticData?.name).toBe(singleUpdatePayload.name);
+
+      expect(await singleItemModel.data$.pipe(first()).toPromise()).toEqual(serverSingleUpdated);
+      singleItemModel.dispose();
+    });
+    
+    it("should revert optimistic update of single item if update fails", async () => {
+       const initialSingleUserToFail = { id: "s-fail-1", name: "Single Fail Original", email: "sfail@example.com" };
+       const singleUpdatePayloadFail = { name: "Single Fail Updated" };
+       const singleItemModelFail = new RestfulApiModel<User, typeof UserSchema>(
         baseUrl,
         endpoint,
         mockFetcher,
         UserSchema,
-        { id: "1", name: "Alice", email: "alice@example.com" }
+        JSON.parse(JSON.stringify(initialSingleUserToFail))
       );
-      await singleItemModel.update("1", payload);
-      expect(await singleItemModel.data$.pipe(first()).toPromise()).toEqual(
-        updatedUser
-      );
-      singleItemModel.dispose();
-    });
+      const updateError = new Error("Single Update Failed");
+      mockFetcher.mockRejectedValue(updateError); // Mock failure
 
-    it("should set error$ if update fails", async () => {
-      const updateError = new Error("Update failed");
-      mockFetcher.mockRejectedValue(updateError);
+      const dataEmissions: (User | null)[] = [];
+      singleItemModelFail.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
 
-      await model.update("1", payload);
-
-      expect(await model.error$.pipe(first()).toPromise()).toBe(updateError);
-      expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
+      await expect(singleItemModelFail.update(initialSingleUserToFail.id, singleUpdatePayloadFail)).rejects.toThrow(updateError);
+      
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Reverted
+      const revertedData = dataEmissions[dataEmissions.length -1];
+      expect(revertedData).toEqual(initialSingleUserToFail);
+      expect(await singleItemModelFail.error$.pipe(first()).toPromise()).toBe(updateError);
+      singleItemModelFail.dispose();
     });
   });
 
   describe("delete method", () => {
+    let initialCollectionDataDelete: User[];
+    const userToDeleteId = "1";
+
     beforeEach(() => {
-      model.setData([
-        { id: "1", name: "Alice", email: "alice@example.com" },
+      initialCollectionDataDelete = [
+        { id: userToDeleteId, name: "Alice", email: "alice@example.com" },
         { id: "2", name: "Bob", email: "bob@example.com" },
-      ]);
-      mockFetcher.mockResolvedValue({ status: 204 } as Response); // Mock successful deletion with 204 No Content
+      ];
+      model.setData([...initialCollectionDataDelete]);
+      // Default mock for successful deletion (204 No Content)
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        status: 204,
+        json: () => Promise.resolve(null), // Should not be called for 204
+        text: () => Promise.resolve(""),   // Should not be called for 204
+        headers: new Headers({ "Content-Type": "application/json" }), // Content-Type might not be there for 204
+      } as Response);
     });
 
-    it("should delete a user from data$ collection", async () => {
-      await model.delete("1");
+    it("should optimistically delete item from collection and confirm", async () => {
+      const dataEmissions: (User[] | null)[] = [];
+      model.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
 
-      expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}/1`, {
+      const promise = model.delete(userToDeleteId);
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(2); // Initial, Optimistic
+      const optimisticData = dataEmissions[dataEmissions.length - 1] as User[];
+      expect(optimisticData.find(u => u.id === userToDeleteId)).toBeUndefined();
+      expect(optimisticData.length).toBe(initialCollectionDataDelete.length - 1);
+
+      await promise; // Wait for API call to resolve
+
+      expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}/${userToDeleteId}`, {
         method: "DELETE",
       });
-      const currentData = await model.data$.pipe(first()).toPromise();
-      expect(currentData).toEqual([
-        { id: "2", name: "Bob", email: "bob@example.com" },
-      ]);
+      // Final state should be the same as optimistic for delete
+      const finalData = await model.data$.pipe(first()).toPromise() as User[];
+      expect(finalData.find(u => u.id === userToDeleteId)).toBeUndefined();
+      expect(finalData.length).toBe(initialCollectionDataDelete.length - 1);
       expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
       expect(await model.error$.pipe(first()).toPromise()).toBeNull();
     });
 
-    it("should set data$ to null if it was a single item and that item is deleted", async () => {
+    it("should revert optimistic delete from collection if delete fails", async () => {
+      const dataEmissions: (User[] | null)[] = [];
+      model.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+      
+      const deleteError = new Error("Deletion failed");
+      mockFetcher.mockRejectedValue(deleteError);
+
+      await expect(model.delete(userToDeleteId)).rejects.toThrow(deleteError);
+
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic, Reverted
+      const revertedData = dataEmissions[dataEmissions.length -1] as User[];
+      expect(revertedData).toEqual(initialCollectionDataDelete);
+      expect(await model.error$.pipe(first()).toPromise()).toBe(deleteError);
+    });
+
+    it("should optimistically set single item to null and confirm", async () => {
+      const initialSingleUser = { id: "single-del-1", name: "Single Delete", email: "sdel@example.com" };
       const singleItemModel = new RestfulApiModel<User, typeof UserSchema>(
+        baseUrl,
+        endpoint,
+        mockFetcher, // Reuses beforeEach mock for successful delete
+        UserSchema,
+        JSON.parse(JSON.stringify(initialSingleUser))
+      );
+
+      const dataEmissions: (User | null)[] = [];
+      singleItemModel.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
+      await singleItemModel.delete(initialSingleUser.id);
+
+      // Emissions: Initial, Optimistic (which is also final for successful delete)
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(2); 
+      expect(dataEmissions[dataEmissions.length - 1]).toBeNull(); // Optimistic & Final state
+      expect(await singleItemModel.data$.pipe(first()).toPromise()).toBeNull(); 
+      singleItemModel.dispose();
+    });
+
+    it("should revert optimistic set to null of single item if delete fails", async () => {
+      const initialSingleUserFail = { id: "s-del-fail-1", name: "Single Del Fail", email: "sdelfail@example.com" };
+      const singleItemModelFail = new RestfulApiModel<User, typeof UserSchema>(
         baseUrl,
         endpoint,
         mockFetcher,
         UserSchema,
-        { id: "1", name: "Alice", email: "alice@example.com" }
+        JSON.parse(JSON.stringify(initialSingleUserFail))
       );
-      await singleItemModel.delete("1");
-      expect(await singleItemModel.data$.pipe(first()).toPromise()).toBeNull();
-      singleItemModel.dispose();
+      const deleteError = new Error("Single Deletion Failed");
+      mockFetcher.mockRejectedValue(deleteError); // Mock failure
+
+      const dataEmissions: (User | null)[] = [];
+      singleItemModelFail.data$.subscribe(data => dataEmissions.push(data ? JSON.parse(JSON.stringify(data)) : null));
+
+      await expect(singleItemModelFail.delete(initialSingleUserFail.id)).rejects.toThrow(deleteError);
+      
+      expect(dataEmissions.length).toBeGreaterThanOrEqual(3); // Initial, Optimistic(null), Reverted
+      expect(dataEmissions[dataEmissions.length-2]).toBeNull(); // Optimistic state was null
+      expect(await singleItemModelFail.data$.pipe(first()).toPromise()).toEqual(initialSingleUserFail); // Reverted
+      expect(await singleItemModelFail.error$.pipe(first()).toPromise()).toBe(deleteError);
+      singleItemModelFail.dispose();
     });
+  });
 
-    it("should set error$ if delete fails", async () => {
-      const deleteError = new Error("Deletion failed");
-      mockFetcher.mockRejectedValue(deleteError);
+  describe("dispose method", () => {
+    it("should call super.dispose and complete BaseModel observables", () => {
+      const baseModelDisposeSpy = vi.spyOn(BaseModel.prototype, "dispose");
 
-      await model.delete("1");
+      // Create a new model instance for this test to avoid interference
+      const disposeModel = new RestfulApiModel<User | User[], typeof UserSchema>(
+        baseUrl,
+        endpoint,
+        mockFetcher,
+        UserSchema
+      );
 
-      expect(await model.error$.pipe(first()).toPromise()).toBe(deleteError);
-      expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false);
+      const dataCompleteSpy = vi.fn();
+      const isLoadingCompleteSpy = vi.fn();
+      const errorCompleteSpy = vi.fn();
+
+      disposeModel.data$.subscribe({ complete: dataCompleteSpy });
+      disposeModel.isLoading$.subscribe({ complete: isLoadingCompleteSpy });
+      disposeModel.error$.subscribe({ complete: errorCompleteSpy });
+
+      disposeModel.dispose();
+
+      expect(baseModelDisposeSpy).toHaveBeenCalledTimes(1);
+      expect(dataCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(isLoadingCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(errorCompleteSpy).toHaveBeenCalledTimes(1);
+
+      // Attempt to use methods that change state to ensure no further actions
+      disposeModel.setData(null); // Should not emit on data$
+      disposeModel.setLoading(true); // Should not emit on isLoading$
+      disposeModel.setError(new Error("test")); // Should not emit on error$
+      
+      // Verify no new next emissions after dispose (spies would have been called again)
+      // This is implicitly tested by checking complete was called, as completed subjects don't emit.
+
+      baseModelDisposeSpy.mockRestore(); // Clean up the spy
     });
   });
 });

@@ -151,4 +151,117 @@ describe("Command", () => {
       "canExecuteFn must be an Observable<boolean> or a function returning boolean/Observable<boolean>."
     );
   });
+
+  describe("dispose", () => {
+    let commandWithDefaultCanExecute: Command<string, string>;
+    let commandWithExternalCanExecute: Command<string, string>;
+    let externalCanExecute$: BehaviorSubject<boolean>;
+    // @ts-ignore
+    let mockExecuteFnDispose: vi.Mock;
+
+    beforeEach(() => {
+      mockExecuteFnDispose = vi.fn(async (param: string) => `Executed: ${param}`);
+      externalCanExecute$ = new BehaviorSubject<boolean>(true);
+
+      commandWithDefaultCanExecute = new Command(mockExecuteFnDispose);
+      commandWithExternalCanExecute = new Command(
+        mockExecuteFnDispose,
+        externalCanExecute$.asObservable()
+      );
+    });
+
+    it("should complete internal observables when disposed (default canExecute)", () => {
+      const isExecutingCompleteSpy = vi.fn();
+      const executeErrorCompleteSpy = vi.fn();
+      const canExecuteCompleteSpy = vi.fn();
+
+      commandWithDefaultCanExecute.isExecuting$.subscribe({ complete: isExecutingCompleteSpy });
+      commandWithDefaultCanExecute.executeError$.subscribe({ complete: executeErrorCompleteSpy });
+      commandWithDefaultCanExecute.canExecute$.subscribe({ complete: canExecuteCompleteSpy });
+
+      commandWithDefaultCanExecute.dispose();
+
+      expect(isExecutingCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(executeErrorCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(canExecuteCompleteSpy).toHaveBeenCalledTimes(1); // Derived observable should complete
+    });
+
+    it("should complete internal observables and not external canExecute$ when disposed", () => {
+      const isExecutingCompleteSpy = vi.fn();
+      const executeErrorCompleteSpy = vi.fn();
+      const canExecuteCompleteSpy = vi.fn();
+      const externalCanExecuteCompleteSpy = vi.fn();
+
+
+      commandWithExternalCanExecute.isExecuting$.subscribe({ complete: isExecutingCompleteSpy });
+      commandWithExternalCanExecute.executeError$.subscribe({ complete: executeErrorCompleteSpy });
+      commandWithExternalCanExecute.canExecute$.subscribe({ complete: canExecuteCompleteSpy });
+      externalCanExecute$.subscribe({ complete: externalCanExecuteCompleteSpy });
+
+
+      commandWithExternalCanExecute.dispose();
+
+      expect(isExecutingCompleteSpy).toHaveBeenCalledTimes(1);
+      expect(executeErrorCompleteSpy).toHaveBeenCalledTimes(1);
+      // If _canExecute$ (external) is not completed, and only _isExecuting$ is completed,
+      // the stream derived by switchMap might not complete. It will just stop reacting to _isExecuting$.
+      // If externalCanExecute$ then emits, switchMap will try to use the completed _isExecuting$,
+      // which should result in an immediate completion of that inner part.
+      // The overall canExecute$ (derived) should not complete if its external source doesn't.
+      expect(canExecuteCompleteSpy).not.toHaveBeenCalled();
+      expect(externalCanExecuteCompleteSpy).not.toHaveBeenCalled(); // External should not complete
+    });
+
+    it("should not allow execution and return undefined if execute is called after disposal", async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      commandWithDefaultCanExecute.dispose(); // Dispose first
+      
+      const result = await commandWithDefaultCanExecute.execute("test");
+
+      expect(result).toBeUndefined(); // Should return undefined as per new dispose logic
+      expect(mockExecuteFnDispose).not.toHaveBeenCalled();
+      expect(consoleLogSpy).toHaveBeenCalledWith("Command is disposed. Cannot execute.");
+      consoleLogSpy.mockRestore();
+    });
+    
+    it("should not emit further values on isExecuting$, executeError$ after disposal", () => {
+      const isExecutingNextSpy = vi.fn();
+      const executeErrorNextSpy = vi.fn();
+            
+      commandWithDefaultCanExecute.isExecuting$.subscribe({ next: isExecutingNextSpy });
+      commandWithDefaultCanExecute.executeError$.subscribe({ next: executeErrorNextSpy });
+      
+      // Dispose after subscription but before clearing, to capture any immediate post-subscription emissions
+      commandWithDefaultCanExecute.dispose(); 
+
+      // Clear spies to only check for emissions *after* dispose that might be wrongfully triggered
+      isExecutingNextSpy.mockClear();
+      executeErrorNextSpy.mockClear();
+
+      // Attempt to manually trigger next on underlying subjects (testing RxJS completed subject behavior)
+      // These calls should be no-ops on completed subjects.
+      if (!(commandWithDefaultCanExecute as any)._isExecuting$.closed) {
+        (commandWithDefaultCanExecute as any)._isExecuting$.next(true);
+      }
+      if (!(commandWithDefaultCanExecute as any)._executeError$.closed) {
+        (commandWithDefaultCanExecute as any)._executeError$.next(new Error("test error"));
+      }
+
+      expect(isExecutingNextSpy).not.toHaveBeenCalled();
+      expect(executeErrorNextSpy).not.toHaveBeenCalled();
+    });
+
+
+    it("canExecute$ from disposed command with external source should not emit if external source changes", () => {
+      const canExecuteNextSpy = vi.fn();
+      commandWithExternalCanExecute.canExecute$.subscribe({ next: canExecuteNextSpy });
+      
+      commandWithExternalCanExecute.dispose();
+      canExecuteNextSpy.mockClear(); // Clear emissions up to and including completion emission
+
+      externalCanExecute$.next(false); // Change external source
+
+      expect(canExecuteNextSpy).not.toHaveBeenCalled(); // No new emissions from the disposed command's canExecute$
+    });
+  });
 });

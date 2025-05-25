@@ -9,9 +9,10 @@ A framework-agnostic web library for building robust client-side applications us
 * **MVVM Core:** Provides `BaseModel` and `BaseViewModel` for structured application development.
 * **Reactive Data Flow:** Built entirely on **RxJS**, ensuring all data, loading states, and errors are reactive observables.
 * **Strong Data Validation:** Integrates **Zod** schemas for compile-time and runtime data validation.
-* **RESTful API Management:** `RestfulApiModel` simplifies CRUD operations by acting as a local data store, managing loading states, and handling errors automatically.
-* **Command Pattern:** Offers a `Command` utility for encapsulating UI actions, including `canExecute` and `isExecuting` states, for clean UI-ViewModel separation.
+* **RESTful API Management:** `RestfulApiModel` simplifies CRUD operations with **optimistic updates**, acting as a local data store, managing loading states, and handling errors automatically.
+* **Command Pattern:** Offers a `Command` utility for encapsulating UI actions, including `canExecute` and `isExecuting` states, for clean UI-ViewModel separation. Implements `IDisposable`.
 * **Observable Collections:** `ObservableCollection` provides reactive list management, notifying views of granular changes (add, remove, update) for efficient rendering.
+* **Resource Management:** Core components like `BaseModel` and `Command` implement `IDisposable` for proper resource cleanup (e.g., completing RxJS Subjects), helping prevent memory leaks.
 * **Framework Agnostic:** Designed with no direct UI framework dependencies, allowing seamless integration with React, Angular, Vue, and others.
 * **Client-Heavy App Focused:** Ideal for building complex dashboards, forms, and data-intensive single-page applications.
 
@@ -115,11 +116,31 @@ async function loadUsers() {
 
     try {
         await userApi.fetch(); // Fetches all users
-        await userApi.create({ name: 'New User', email: 'new@example.com' }); // Creates a new user
-        await userApi.update('some-uuid', { name: 'Updated User' }); // Updates a user
-        await userApi.delete('another-uuid'); // Deletes a user
+
+        // Create example
+        const newUserPayload = { name: 'New User', email: 'new@example.com' }; // No ID needed if server generates
+        const createdUser = await userApi.create(newUserPayload);
+        if (createdUser) {
+            console.log('Created User:', createdUser); // Has server-assigned ID
+
+            // Update example
+            const updatedUser = await userApi.update(createdUser.id, { name: 'Updated User Name' });
+            console.log('Updated User:', updatedUser);
+
+            // Delete example
+            if (updatedUser) {
+                await userApi.delete(updatedUser.id);
+                console.log('User deleted successfully.');
+            }
+        }
     } catch (e) {
-        console.error('API operation failed:', e);
+        // Errors from create, update, delete are re-thrown after setting model.error$
+        // and reverting optimistic updates.
+        console.error('API operation failed:', e, userApi.error$.getValue());
+    } finally {
+        // It's good practice to dispose of models/commands when they are no longer needed,
+        // especially if they are long-lived and manage subscriptions.
+        // userApi.dispose(); 
     }
 }
 ```

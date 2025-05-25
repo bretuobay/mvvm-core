@@ -44,7 +44,7 @@ Expose data$, isLoading$, error$ directly from the injected model.
 
 Implement validationErrors$ observable, deriving it from the model's validation logic or a dedicated validation subject within the ViewModel.
 
-Implement the dispose() method to handle RxJS subscription cleanup (e.g., using Subject for takeUntil or a Subscription array).
+Implement the dispose() method to handle RxJS subscription cleanup. This method should call `model.dispose()` if the ViewModel instance owns the lifecycle of the model instance. (Note: `BaseModel` now implements `IDisposable` and has a `dispose` method, which has been completed).
 
 Add basic unit tests for BaseViewModel's properties and dispose method.
 
@@ -70,16 +70,18 @@ Validate the response data using the Zod schema.
 Update data$ and isLoading$ (on success) or error$ (on failure).
 
 Implement create(payload: Partial<TData>), update(id: string, payload: Partial<TData>), delete(id: string) methods:
+These methods now include optimistic update logic. (Completed)
 
-Similar logic to fetch regarding isLoading$, error$, and data$ updates.
+Similar logic to fetch regarding isLoading$, error$, and data$ updates, plus optimistic updates and rollback on error.
 
 Ensure create adds the new item to data$ if it's a collection.
 
 Ensure update modifies the existing item in data$.
 
 Ensure delete removes the item from data$.
+Implement `dispose()` method by calling `super.dispose()`. (Completed)
 
-Add comprehensive unit tests for all CRUD methods, mocking the fetcher function.
+Add comprehensive unit tests for all CRUD methods, mocking the fetcher function, and testing optimistic update scenarios including rollbacks. (Completed)
 
 Implement Command<TParam, TResult>:
 
@@ -100,8 +102,9 @@ Set isExecuting$ to true.
 Call executeFn and handle its Promise resolution/rejection.
 
 Set isExecuting$ to false and update executeError$ accordingly.
+Implement `dispose()` method to complete internal subjects (`isExecuting$`, `executeError$`). (Completed)
 
-Add unit tests for Command's canExecute$, isExecuting$, and execute behavior, including error handling.
+Add unit tests for Command's canExecute$, isExecuting$, execute behavior, error handling, and disposal. (Completed)
 
 Phase 3: Observable Collections and Documentation
 Objective: Implement reactive collections and provide initial documentation.
