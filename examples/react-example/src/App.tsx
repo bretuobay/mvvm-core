@@ -1,17 +1,16 @@
-import React, { useEffect } from 'react';
-import { TodoListViewModel } from './viewmodels/TodoListViewModel';
-import { AddTodoForm } from './components/AddTodoForm';
-import { TodoList } from './components/TodoList';
-import './App.css';
+import { TodoListViewModel } from "./viewmodels/TodoListViewModel";
+import { AddTodoForm } from "./components/AddTodoForm";
+import { TodoList } from "./components/TodoList";
+import "./App.css";
 
 const todoListViewModel = new TodoListViewModel();
 
 function App() {
-  useEffect(() => {
-    return () => {
-      todoListViewModel.dispose();
-    };
-  }, []);
+  // useEffect(() => {
+  //   return () => {
+  //     todoListViewModel.dispose();
+  //   };
+  // }, []);
 
   return (
     <div className="App">

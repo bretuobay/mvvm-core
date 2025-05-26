@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TodoListViewModel } from '../viewmodels/TodoListViewModel';
+import React, { useState, useEffect } from "react";
+import { TodoListViewModel } from "../viewmodels/TodoListViewModel";
 
 interface AddTodoFormProps {
   viewModel: TodoListViewModel;
@@ -10,13 +10,14 @@ export const AddTodoForm: React.FC<AddTodoFormProps> = ({ viewModel }) => {
   const [canAddTodo, setCanAddTodo] = useState(false);
 
   useEffect(() => {
-    const textSubscription = viewModel.newTodoText$.subscribe(text => {
+    const textSubscription = viewModel.newTodoText$.subscribe((text) => {
       setInputText(text);
     });
 
-    const canExecuteSubscription = viewModel.addTodoCommand.canExecute$.subscribe(canExec => {
-      setCanAddTodo(canExec);
-    });
+    const canExecuteSubscription =
+      viewModel.addTodoCommand.canExecute$.subscribe((canExec) => {
+        setCanAddTodo(canExec);
+      });
 
     // Initialize canAddTodo with the current value from the BehaviorSubject
     // This is important because the BehaviorSubject emits its current value on subscription.

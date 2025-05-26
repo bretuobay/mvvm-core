@@ -1,12 +1,12 @@
-import { BaseViewModel } from '../../../../src/viewmodels/BaseViewModel';
-import { Command } from '../../../../src/commands/Command';
-import { ObservableCollection } from '../../../../src/collections/ObservableCollection';
-import { TodoItem, TodoItemData } from '../models/TodoItem';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BaseViewModel } from "../../../../src/viewmodels/BaseViewModel";
+import { Command } from "../../../../src/commands/Command";
+import { ObservableCollection } from "../../../../src/collections/ObservableCollection";
+import { TodoItem } from "../models/TodoItem";
+import { BehaviorSubject, Observable } from "rxjs";
+import { map } from "rxjs/operators";
 
 // Create a dummy BaseModel for the ViewModel since BaseViewModel expects one.
-import { BaseModel } from '../../../../src/models/BaseModel'; 
+import { BaseModel } from "../../../../src/models/BaseModel";
 class DummyModel extends BaseModel<null, any> {
   constructor() {
     super(null);
@@ -15,8 +15,8 @@ class DummyModel extends BaseModel<null, any> {
 
 export class TodoListViewModel extends BaseViewModel<DummyModel> {
   public todos: ObservableCollection<TodoItem>;
-  
-  private _newTodoText$ = new BehaviorSubject<string>('');
+
+  private _newTodoText$ = new BehaviorSubject<string>("");
   public newTodoText$: Observable<string> = this._newTodoText$.asObservable();
 
   public addTodoCommand: Command<void, void>;
@@ -26,31 +26,28 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
     super(new DummyModel());
 
     this.todos = new ObservableCollection<TodoItem>([]);
-    
+
     this.addTodoCommand = new Command<void, void>(
       async () => this.addTodo(),
-      this._newTodoText$.pipe(map(text => text.trim().length > 0))
+      this._newTodoText$.pipe(map((text) => text.trim().length > 0))
     );
 
-    this.toggleTodoCommand = new Command<string, void>(
-      async (todoId) => this.toggleTodo(todoId)
+    this.toggleTodoCommand = new Command<string, void>(async (todoId) =>
+      this.toggleTodo(todoId)
     );
   }
 
   private addTodo(): void {
     const text = this._newTodoText$.value.trim();
     if (text) {
-      const newTodo = new TodoItem(
-        Date.now().toString(),
-        text
-      );
+      const newTodo = new TodoItem(Date.now().toString(), text);
       this.todos.add(newTodo);
-      this._newTodoText$.next('');
+      this._newTodoText$.next("");
     }
   }
 
   private toggleTodo(todoId: string): void {
-    const todo = this.todos.toArray().find(t => t.id === todoId);
+    const todo = this.todos.toArray().find((t) => t.id === todoId);
     if (todo) {
       todo.toggleCompletion();
       const items = this.todos.toArray();
@@ -61,7 +58,7 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
   public dispose(): void {
     super.dispose();
     this._newTodoText$.complete();
-    this.todos.toArray().forEach(todo => todo.dispose());
+    this.todos.toArray().forEach((todo) => todo.dispose());
     this.addTodoCommand.dispose();
     this.toggleTodoCommand.dispose();
   }
