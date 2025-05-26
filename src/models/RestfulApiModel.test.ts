@@ -2,9 +2,8 @@ import { describe, it, beforeEach, expect, afterEach, vi } from "vitest";
 
 import { RestfulApiModel, Fetcher } from "./RestfulApiModel";
 import { BaseModel } from "./BaseModel"; // Import BaseModel
-import { z } from "zod";
-import { first, skip } from "rxjs/operators";
-import { ZodError } from "zod/v4";
+import { z, ZodError, ZodIssueCode } from "zod"; // Consolidated Zod import
+import { first } from "rxjs/operators"; // Removed skip
 
 // Define a simple Zod schema for testing
 const UserSchema = z.object({
@@ -133,10 +132,23 @@ describe("RestfulApiModel", () => {
       await model.fetch();
 
       const error = await model.error$.pipe(first()).toPromise();
-      expect(error).toBeInstanceOf(z.ZodError);
-      // For z.string().email(), an invalid email format results in "invalid_string"
-      expect((error as ZodError).issues[0].code).toBe(z.ZodIssueCode.invalid_string);
-      expect((error as ZodError).issues[0].validation).toBe("email"); // More specific check
+      expect(error).toBeInstanceOf(ZodError); // Assuming ZodError is correctly imported
+      
+      const zodError = error as ZodError;
+      expect(zodError.issues.length).toBeGreaterThan(0);
+      const firstIssue = zodError.issues[0];
+
+      // Check the code first
+      expect(firstIssue.code).toBe(ZodIssueCode.invalid_string); // Assuming ZodIssueCode is correctly imported
+
+      // Now, TypeScript should allow access to 'validation' by narrowing the type
+      if (firstIssue.code === ZodIssueCode.invalid_string) {
+        expect(firstIssue.validation).toBe("email"); 
+      } else {
+        // Fail the test explicitly if it's not the expected issue code,
+        // as the .validation check wouldn't make sense otherwise.
+        throw new Error("Test expectation failed: Expected ZodIssueCode.invalid_string, but got " + firstIssue.code);
+      }
       expect(await model.data$.pipe(first()).toPromise()).toBeNull(); // Data should not be set
     });
   });
@@ -158,8 +170,8 @@ describe("RestfulApiModel", () => {
     };
     const serverUserFromClientPayload: User = {
         id: "server-assigned-from-client-payload",
-        name: payloadWithClientId.name,
-        email: payloadWithClientId.email,
+        name: payloadWithClientId.name!,
+        email: payloadWithClientId.email!,
     }
 
 
