@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import dts from 'vite-plugin-dts';
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
   build: {
@@ -11,5 +11,5 @@ export default defineConfig({
       fileName: "mvvm-core",
     },
   },
-  plugins: [dts({ insertTypesEntry: true, outputDir: "dist" })], // also specify for dts plugin
+  plugins: [dts({ insertTypesEntry: true, outDir: "dist" })], // also specify for dts plugin
 });
