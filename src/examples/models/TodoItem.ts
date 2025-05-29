@@ -1,4 +1,4 @@
-import { BaseModel } from '../../../../src/models/BaseModel';
+import { BaseModel } from "../../models/BaseModel";
 
 export interface TodoItemData {
   id: string;
@@ -31,7 +31,10 @@ export class TodoItem extends BaseModel<TodoItemData, any> {
 
   public toggleCompletion(): void {
     if (this._data$.value) {
-      this.setData({ ...this._data$.value, isCompleted: !this._data$.value.isCompleted });
+      this.setData({
+        ...this._data$.value,
+        isCompleted: !this._data$.value.isCompleted,
+      });
     }
   }
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { TodoItem, TodoItemData } from "../models/TodoItem";
-import { TodoListViewModel } from "../viewmodels/TodoListViewModel";
+import { TodoListViewModel, TodoItem, TodoItemData } from "mvvm-core";
 
 interface TodoListItemProps {
   todo: TodoItem;

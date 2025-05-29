@@ -1,12 +1,12 @@
-import { BaseViewModel } from "../../../../src/viewmodels/BaseViewModel";
-import { Command } from "../../../../src/commands/Command";
-import { ObservableCollection } from "../../../../src/collections/ObservableCollection";
 import { TodoItem } from "../models/TodoItem";
 import { BehaviorSubject, Observable } from "rxjs";
 import { map } from "rxjs/operators";
+import { ObservableCollection } from "../../collections/ObservableCollection";
+import { Command } from "../../commands/Command";
+import { BaseModel } from "../../models/BaseModel";
+import { BaseViewModel } from "../../viewmodels/BaseViewModel";
 
 // Create a dummy BaseModel for the ViewModel since BaseViewModel expects one.
-import { BaseModel } from "../../../../src/models/BaseModel";
 class DummyModel extends BaseModel<null, any> {
   constructor() {
     super(null);
