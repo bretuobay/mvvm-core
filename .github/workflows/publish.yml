@@ -58,5 +58,5 @@ jobs:
             # Publish the package.
             # Use --access public for unscoped public packages or scoped public packages.
             # Omit --access public if your scoped package is intended to be private.
-            npm publish --access public
+            npm publish --access public --verbose
           fi
