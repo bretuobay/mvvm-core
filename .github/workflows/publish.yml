@@ -37,6 +37,10 @@ jobs:
           # Use a GitHub Secret for your npm token
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          echo "Current working directory: $(pwd)"
+          echo "Listing contents of dist/:"
+          ls -la dist/
+
           # Check if the package version exists on npm to avoid re-publishing identical versions
           # This is a safety check; ideally, you should bump version manually before merge
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
