@@ -14,8 +14,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, defineProps } from "vue";
 import type { Subscription } from "rxjs";
-import type { TodoItem, TodoItemData } from "../models/TodoItem";
-import type { TodoListViewModel } from "../viewmodels/TodoListViewModel";
+import type { TodoItem, TodoItemData, TodoListViewModel } from "mvvm-core";
 
 const props = defineProps<{
   todo: TodoItem;

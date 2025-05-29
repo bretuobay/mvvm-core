@@ -10,10 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "mvvm-core": "file:../../mvvm-core-0.3.0.tgz",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "rxjs": "^7.8.1",
-    "mvvm-core": "file:../.."
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
