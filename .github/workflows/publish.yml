@@ -10,9 +10,6 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - name: Checkout repository
@@ -34,30 +31,41 @@ jobs:
 
       - name: Publish to npm
         env:
-          # Use a GitHub Secret for your npm token
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # Use a GitHub Secret for your npm token
         run: |
-          echo "Current working directory: $(pwd)"
-          echo "Listing contents of dist/:"
-          ls -la dist/
+          # Set shell options for robustness:
+          # -e: Exit immediately if a command exits with a non-zero status (default for GHA, but good to be explicit)
+          # -u: Treat unset variables as an error
+          # -o pipefail: The return value of a pipeline is the status of the last command to exit with a non-zero status
+          set -euo pipefail 
 
-          # Check if the package version exists on npm to avoid re-publishing identical versions
-          # This is a safety check; ideally, you should bump version manually before merge
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           PACKAGE_NAME=$(node -p "require('./package.json').name")
 
-          NPM_REGISTRY_URL="https://registry.npmjs.org"
-          npm publish --access public --verbose
+          echo "--- Package Information ---"
+          echo "Package Name: $PACKAGE_NAME"
+          echo "Package Version: $PACKAGE_VERSION"
+          echo "--------------------------"
 
-        #   # Check if version already exists
-        #   npm view "$PACKAGE_NAME@$PACKAGE_VERSION" > /dev/null 2>&1
-        #   if [ $? -eq 0 ]; then
-        #     echo "Package version $PACKAGE_VERSION already exists on npm. Skipping publish."
-        #     exit 0
-        #   else
-        #     echo "Package version $PACKAGE_VERSION is new. Attempting to publish."
-        #     # Publish the package.
-        #     # Use --access public for unscoped public packages or scoped public packages.
-        #     # Omit --access public if your scoped package is intended to be private.
-        #     npm publish --access public --verbose
-        #   fi
+          # Check if version already exists on npm:
+          # 1. Temporarily disable 'exit on error' (`set +e`) for the `npm view` command
+          # 2. Redirect both stdout and stderr to /dev/null to keep the console clean
+          # 3. Capture the exit code immediately after the command
+          # 4. Re-enable 'exit on error' (`set -e`)
+          set +e 
+          npm view "$PACKAGE_NAME@$PACKAGE_VERSION" > /dev/null 2>&1
+          NPM_VIEW_EXIT_CODE=$? # Capture the exit code of npm view
+          set -e # Re-enable exit on error for subsequent commands
+
+          if [ "$NPM_VIEW_EXIT_CODE" -eq 0 ]; then
+            echo "✅ Package version $PACKAGE_VERSION already exists on npm. Skipping publish."
+            exit 0 # Exit the step successfully
+          else
+            # If npm view exited non-zero, it means the version doesn't exist or an error occurred.
+            # We assume here that a non-zero exit code for `npm view` (when given a version)
+            # indicates that the specific version is not found, which is what we want for publishing.
+            echo "🚀 Package version $PACKAGE_VERSION is new. Attempting to publish."
+            npm publish --access public --verbose # --verbose for detailed npm output
+          fi
+
+          echo "--- Publish process completed ---"
