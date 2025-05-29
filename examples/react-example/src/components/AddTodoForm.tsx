@@ -1,5 +1,5 @@
+import { TodoListViewModel } from "mvvm-core";
 import React, { useState, useEffect } from "react";
-import { TodoListViewModel } from "../viewmodels/TodoListViewModel";
 
 interface AddTodoFormProps {
   viewModel: TodoListViewModel;

@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ignore packs from local pattern : mvvm-core-0.1.0.tgz
+mvvm-core-*.tgz

@@ -1,11 +1,12 @@
-import { BaseViewModel } from "../../../../src/viewmodels/BaseViewModel";
-import { Command } from "../../../../src/commands/Command";
-import { ObservableCollection } from "../../../../src/collections/ObservableCollection";
 import { TodoItem } from "../models/TodoItem";
 import { BehaviorSubject, Observable } from "rxjs";
 import { map } from "rxjs/operators";
-import { BaseModel } from "../../../../src/models/BaseModel";
+import { ObservableCollection } from "../../collections/ObservableCollection";
+import { Command } from "../../commands/Command";
+import { BaseModel } from "../../models/BaseModel";
+import { BaseViewModel } from "../../viewmodels/BaseViewModel";
 
+// Create a dummy BaseModel for the ViewModel since BaseViewModel expects one.
 class DummyModel extends BaseModel<null, any> {
   constructor() {
     super(null);
@@ -14,6 +15,7 @@ class DummyModel extends BaseModel<null, any> {
 
 export class TodoListViewModel extends BaseViewModel<DummyModel> {
   public todos: ObservableCollection<TodoItem>;
+
   private _newTodoText$ = new BehaviorSubject<string>("");
   public newTodoText$: Observable<string> = this._newTodoText$.asObservable();
 
@@ -22,6 +24,7 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
 
   constructor() {
     super(new DummyModel());
+
     this.todos = new ObservableCollection<TodoItem>([]);
 
     this.addTodoCommand = new Command<void, void>(
@@ -52,19 +55,19 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
     }
   }
 
-  public get newTodoText(): string {
-    return this._newTodoText$.value;
-  }
-
-  public setNewTodoText(text: string): void {
-    this._newTodoText$.next(text);
-  }
-
   public dispose(): void {
     super.dispose();
     this._newTodoText$.complete();
     this.todos.toArray().forEach((todo) => todo.dispose());
     this.addTodoCommand.dispose();
     this.toggleTodoCommand.dispose();
+  }
+
+  public get newTodoText(): string {
+    return this._newTodoText$.value;
+  }
+
+  public setNewTodoText(text: string): void {
+    this._newTodoText$.next(text);
   }
 }

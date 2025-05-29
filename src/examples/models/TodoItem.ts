@@ -1,4 +1,4 @@
-import { BaseModel } from "../../../../src/models/BaseModel";
+import { BaseModel } from "../../models/BaseModel";
 
 export interface TodoItemData {
   id: string;

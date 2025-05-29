@@ -4,6 +4,10 @@ export * from "./models/BaseModel";
 export * from "./models/RestfulApiModel";
 export * from "./viewmodels/BaseViewModel";
 
+// examples:
+export * from "./examples/models/TodoItem";
+export * from "./examples/viewmodels/TodoListViewModel";
+
 export type { Fetcher } from "./models/RestfulApiModel";
 export type { ICommand } from "./commands/Command";
 export type { IObservableCollection } from "./collections/ObservableCollection";

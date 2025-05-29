@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, defineProps, watch } from "vue"; // Added watch
 import type { Subscription } from "rxjs";
-import type { TodoListViewModel } from "../viewmodels/TodoListViewModel";
+import type { TodoListViewModel } from "mvvm-core";
 
 const props = defineProps<{
   viewModel: TodoListViewModel;
