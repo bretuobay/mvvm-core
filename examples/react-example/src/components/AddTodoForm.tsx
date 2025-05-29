@@ -44,6 +44,7 @@ export const AddTodoForm: React.FC<AddTodoFormProps> = ({ viewModel }) => {
         value={inputText}
         onChange={handleInputChange}
         placeholder="Enter new todo"
+        style={{ marginRight: "10px", padding: "0.5rem", width: "75%" }}
       />
       <button onClick={handleAddClick} disabled={!canAddTodo}>
         Add Todo

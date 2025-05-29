@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { TodoItem, TodoItemData } from '../models/TodoItem';
-import { TodoListViewModel } from '../viewmodels/TodoListViewModel';
+import React, { useState, useEffect } from "react";
+import { TodoItem, TodoItemData } from "../models/TodoItem";
+import { TodoListViewModel } from "../viewmodels/TodoListViewModel";
 
 interface TodoListItemProps {
-  todo: TodoItem; 
+  todo: TodoItem;
   viewModel: TodoListViewModel;
 }
 
-export const TodoListItem: React.FC<TodoListItemProps> = ({ todo, viewModel }) => {
+export const TodoListItem: React.FC<TodoListItemProps> = ({
+  todo,
+  viewModel,
+}) => {
   const [itemData, setItemData] = useState<TodoItemData | null>(null);
 
   useEffect(() => {
-    const dataSubscription = todo.data$.subscribe(data => {
+    const dataSubscription = todo.data$.subscribe((data) => {
       setItemData(data);
     });
 
@@ -31,14 +34,28 @@ export const TodoListItem: React.FC<TodoListItemProps> = ({ todo, viewModel }) =
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', margin: '5px 0' }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        margin: "1em",
+        padding: "0.5em 0",
+        borderBottom: "1px solid #eee",
+        borderRadius: "4px",
+      }}
+    >
       <input
         type="checkbox"
         checked={itemData.isCompleted}
         onChange={handleToggle}
-        style={{ marginRight: '10px' }}
+        style={{ marginRight: "10px" }}
       />
-      <span style={{ textDecoration: itemData.isCompleted ? 'line-through' : 'none' }}>
+      <span
+        style={{
+          textDecoration: itemData.isCompleted ? "line-through" : "none",
+          color: itemData.isCompleted ? "#aaa" : "#213547",
+        }}
+      >
         {itemData.text}
       </span>
     </div>
