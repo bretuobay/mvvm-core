@@ -47,16 +47,17 @@ jobs:
           PACKAGE_NAME=$(node -p "require('./package.json').name")
 
           NPM_REGISTRY_URL="https://registry.npmjs.org"
+          npm publish --access public --verbose
 
-          # Check if version already exists
-          npm view "$PACKAGE_NAME@$PACKAGE_VERSION" > /dev/null 2>&1
-          if [ $? -eq 0 ]; then
-            echo "Package version $PACKAGE_VERSION already exists on npm. Skipping publish."
-            exit 0
-          else
-            echo "Package version $PACKAGE_VERSION is new. Attempting to publish."
-            # Publish the package.
-            # Use --access public for unscoped public packages or scoped public packages.
-            # Omit --access public if your scoped package is intended to be private.
-            npm publish --access public --verbose
-          fi
+        #   # Check if version already exists
+        #   npm view "$PACKAGE_NAME@$PACKAGE_VERSION" > /dev/null 2>&1
+        #   if [ $? -eq 0 ]; then
+        #     echo "Package version $PACKAGE_VERSION already exists on npm. Skipping publish."
+        #     exit 0
+        #   else
+        #     echo "Package version $PACKAGE_VERSION is new. Attempting to publish."
+        #     # Publish the package.
+        #     # Use --access public for unscoped public packages or scoped public packages.
+        #     # Omit --access public if your scoped package is intended to be private.
+        #     npm publish --access public --verbose
+        #   fi
