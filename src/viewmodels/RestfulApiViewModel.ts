@@ -1,9 +1,14 @@
 // src/viewmodels/RestfulApiViewModel.ts
-import { BehaviorSubject, combineLatest, Observable } from "rxjs";
+import { BehaviorSubject, combineLatest, Observable, Subscription } from "rxjs";
 import { map, startWith } from "rxjs/operators";
 import { RestfulApiModel } from "../models/RestfulApiModel";
 import { Command } from "../commands/Command"; // Assuming Command is in '../commands'
 import { ZodSchema } from "zod";
+
+// Helper type to check if TData is an array and extract item type
+type ItemWithId = { id: string; [key: string]: any };
+type ExtractItemType<T> = T extends (infer U)[] ? U : T;
+
 
 /**
  * @class RestfulApiViewModel
@@ -46,8 +51,9 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
   // Optional: Example of view-specific state for a collection
   // If TData is an array, you might want to manage selections, filters, etc.
   // This example assumes TData can be an array where items have an 'id'
-  public readonly selectedItem$: Observable<TData | null>;
-  protected _selectedItemId$ = new BehaviorSubject<string | null>(null);
+  public readonly selectedItem$: Observable<ExtractItemType<TData> | null>;
+  protected readonly _selectedItemId$ = new BehaviorSubject<string | null>(null);
+  private _selectedItemSubscription: Subscription | undefined;
 
   /**
    * @param model An instance of RestfulApiModel that this ViewModel will manage.
@@ -65,8 +71,8 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
     this.error$ = this.model.error$;
 
     // Initialize Commands
-    this.fetchCommand = new Command(async (id?: string | string[] | void) => {
-      await this.model.fetch(id === undefined ? undefined : id);
+    this.fetchCommand = new Command(async (id?: string | string[]) => { // void parameter implies undefined
+      await this.model.fetch(id);
     });
 
     this.createCommand = new Command(async (payload: Partial<TData>) => {
@@ -83,24 +89,56 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
 
     // Example for selected item (assumes TData is an array of objects with 'id')
     this.selectedItem$ = combineLatest([
-      this.data$,
+      this.model.data$, // Use model.data$ directly for clarity
       this._selectedItemId$,
     ]).pipe(
       map(([data, selectedId]) => {
         if (Array.isArray(data) && selectedId) {
-          return data.find((item: any) => item.id === selectedId) || null;
+          // Type guard to ensure items have an 'id' property of type string
+          const itemWithId = data.find((item: unknown): item is ItemWithId => {
+            return (
+              typeof item === "object" &&
+              item !== null &&
+              "id" in item &&
+              typeof (item as any).id === "string" &&
+              (item as any).id === selectedId
+            );
+          });
+          return (itemWithId as ExtractItemType<TData>) || null;
         }
         return null;
       }),
       startWith(null) // Ensure initial value
     );
+    // Note: No explicit subscription to this.selectedItem$ is made *within* this class,
+    // so _selectedItemSubscription is not used for this specific observable.
+    // It's declared for good practice if other internal subscriptions were needed.
   }
 
   /**
    * Selects an item by its ID. Useful for showing details or for editing.
-   * @param id The ID of the item to select.
+   * This is only meaningful if TData is an array of items with an 'id' property.
+   * @param id The ID of the item to select. Pass null to clear selection.
    */
   public selectItem(id: string | null): void {
     this._selectedItemId$.next(id);
+  }
+
+  /**
+   * Disposes of resources held by the ViewModel.
+   * This includes disposing of the underlying model and any commands.
+   */
+  public dispose(): void {
+    this.model.dispose();
+    this.fetchCommand.dispose();
+    this.createCommand.dispose();
+    this.updateCommand.dispose();
+    this.deleteCommand.dispose();
+    this._selectedItemId$.complete(); // Complete the subject
+
+    // If _selectedItemSubscription was used for an internal subscription:
+    // if (this._selectedItemSubscription) {
+    //   this._selectedItemSubscription.unsubscribe();
+    // }
   }
 }
