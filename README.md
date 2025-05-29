@@ -38,7 +38,7 @@ You'll also need TypeScript configured in your project.
 
 ```typescript
 // src/models/user.model.ts
-import { BaseModel } from 'your-library-name/models/BaseModel'; // Adjust import path
+import { BaseModel } from 'mvvm-core/BaseModel'; // Adjust import path
 import { z } from 'zod';
 
 export const UserSchema = z.object({
@@ -60,7 +60,7 @@ export class UserModel extends BaseModel<User, typeof UserSchema> {
 2. Creating a ViewModel
 ```typescript
 // src/viewmodels/user.viewmodel.ts
-import { BaseViewModel } from 'your-library-name/viewmodels/BaseViewModel'; // Adjust import path
+import { BaseViewModel } from 'mvvm-core/BaseViewModel'; // Adjust import path
 import { UserModel } from '../models/user.model';
 
 export class UserViewModel extends BaseViewModel<UserModel> {
@@ -81,7 +81,7 @@ export class UserViewModel extends BaseViewModel<UserModel> {
 
 ```typescript
 // src/models/user.api.model.ts
-import { RestfulApiModel, Fetcher } from 'your-library-name/models/RestfulApiModel'; // Adjust import path
+import { RestfulApiModel, Fetcher } from 'mvvm-core/RestfulApiModel'; // Adjust import path
 import { User, UserSchema } from './user.model';
 
 // Example fetcher (can be window.fetch, axios, etc.)
@@ -150,7 +150,7 @@ async function loadUsers() {
 
 ```typescript
 // src/viewmodels/auth.viewmodel.ts
-import { Command } from 'your-library-name/commands/Command'; // Adjust import path
+import { Command } from 'mvvm-core/Command'; // Adjust import path
 import { BehaviorSubject } from 'rxjs';
 
 export class AuthViewModel {
@@ -190,7 +190,7 @@ export class AuthViewModel {
 5. Using ObservableCollection
 ```typescript
 // src/viewmodels/todos.viewmodel.ts
-import { ObservableCollection } from 'your-library-name/collections/ObservableCollection'; // Adjust import path
+import { ObservableCollection } from 'mvvm-cores/ObservableCollection'; // Adjust import path
 import { map } from 'rxjs/operators';
 
 interface Todo {
