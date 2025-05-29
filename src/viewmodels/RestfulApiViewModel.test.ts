@@ -141,11 +141,11 @@ class MockRestfulApiModel extends RestfulApiModel<
 
 describe("RestfulApiViewModel", () => {
   let mockModel: MockRestfulApiModel;
-  let viewModel: RestfulApiViewModel<ItemArray, any>; // Adjust generic type
+  // Correctly type the viewModel according to the MockRestfulApiModel which uses z.array(ItemSchema)
+  let viewModel: RestfulApiViewModel<ItemArray, z.ZodArray<typeof ItemSchema>>;
 
   beforeEach(() => {
     mockModel = new MockRestfulApiModel();
-    // Now no need for `as any` cast here, as MockRestfulApiModel correctly extends RestfulApiModel
     viewModel = new RestfulApiViewModel(mockModel);
   });
 
@@ -217,16 +217,20 @@ describe("RestfulApiViewModel", () => {
       });
     });
 
-    it.skip("should set error$ if fetch fails", async () => {
+    it("should set error$ if fetch fails", async () => {
       const fetchError = new Error("Fetch failed");
-      mockModel.fetch.mockRejectedValueOnce(fetchError);
+      mockModel.fetch.mockImplementation(async () => {
+        mockModel._isLoading$.next(true);
+        mockModel._error$.next(fetchError);
+        mockModel._isLoading$.next(false);
+        throw fetchError;
+      });
 
-      await expect(viewModel.fetchCommand.execute()).rejects.toThrow(
-        fetchError
-      );
+      await expect(viewModel.fetchCommand.execute()).rejects.toThrow(fetchError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(fetchError);
       expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -247,15 +251,20 @@ describe("RestfulApiViewModel", () => {
       expect(Array.isArray(data) && data[0].id).toMatch(/^new-/); // Check for mock ID pattern
     });
 
-    it.skip("should set error$ if create fails", async () => {
+    it("should set error$ if create fails", async () => {
       const createError = new Error("Create failed");
-      mockModel.create.mockRejectedValueOnce(createError);
+      mockModel.create.mockImplementation(async () => {
+        mockModel._isLoading$.next(true);
+        mockModel._error$.next(createError);
+        mockModel._isLoading$.next(false);
+        throw createError;
+      });
 
-      await expect(viewModel.createCommand.execute(payload)).rejects.toThrow(
-        createError
-      );
+      await expect(viewModel.createCommand.execute(payload)).rejects.toThrow(createError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(createError);
+      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -279,15 +288,20 @@ describe("RestfulApiViewModel", () => {
       expect(Array.isArray(data) && data[0].id).toBe(existingItem.id);
     });
 
-    it.skip("should set error$ if update fails", async () => {
+    it("should set error$ if update fails", async () => {
       const updateError = new Error("Update failed");
-      mockModel.update.mockRejectedValueOnce(updateError);
-
-      await expect(
-        viewModel.updateCommand.execute({ id: existingItem.id, payload })
-      ).rejects.toThrow(updateError);
+      mockModel.update.mockImplementation(async () => {
+        mockModel._isLoading$.next(true);
+        mockModel._error$.next(updateError);
+        mockModel._isLoading$.next(false);
+        throw updateError;
+      });
+      
+      await expect(viewModel.updateCommand.execute({ id: existingItem.id, payload })).rejects.toThrow(updateError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(updateError);
+      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -310,15 +324,20 @@ describe("RestfulApiViewModel", () => {
       expect(Array.isArray(data) && data[0].id).toBe("2");
     });
 
-    it.skip("should set error$ if delete fails", async () => {
+    it("should set error$ if delete fails", async () => {
       const deleteError = new Error("Delete failed");
-      mockModel.delete.mockRejectedValueOnce(deleteError);
+      mockModel.delete.mockImplementation(async () => {
+        mockModel._isLoading$.next(true);
+        mockModel._error$.next(deleteError);
+        mockModel._isLoading$.next(false);
+        throw deleteError;
+      });
 
-      await expect(
-        viewModel.deleteCommand.execute(itemToDelete.id)
-      ).rejects.toThrow(deleteError);
-
+      await expect(viewModel.deleteCommand.execute(itemToDelete.id)).rejects.toThrow(deleteError);
+      
       expect(await firstValueFrom(viewModel.error$)).toBe(deleteError);
+      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -337,53 +356,135 @@ describe("RestfulApiViewModel", () => {
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
 
-    it.skip("should update selectedItem$ when selectItem is called with a valid ID", async () => {
-      const selectedItemPromise = firstValueFrom(
-        viewModel.selectedItem$.pipe(skip(1))
-      ); // Skip initial null
-      viewModel.selectItem("b");
-      expect(await selectedItemPromise).toEqual(items[1]);
+    it("should update selectedItem$ when selectItem is called with a valid ID", async () => {
+      // Ensure initial data is set for this specific test context
+      mockModel._data$.next(items); // `items` is defined in the describe block's scope
+
+      const emittedValues: (Item | null)[] = [];
+      const subscription = viewModel.selectedItem$.subscribe(value => {
+        emittedValues.push(value);
+      });
+
+      // Initial emission is typically null (from startWith(null) or if _selectedItemId$ is null)
+      // After mockModel._data$.next(items), if _selectedItemId$ is still null, it would emit null.
+      // So, emittedValues should have [null] or [null, null] at this point.
+
+      viewModel.selectItem("b"); // Action: select item 'b'
+
+      // After selectItem("b"), selectedItem$ should re-evaluate and emit the found item.
+      // emittedValues should now be [initialNull(s)..., items[1]]
+
+      subscription.unsubscribe(); // Clean up
+
+      // Check the last emitted value.
+      // This assumes that selectItem('b') synchronously triggers the emission.
+      // If there are multiple nulls at the start, this will still get the last actual item.
+      expect(emittedValues.pop()).toEqual(items[1]);
     });
 
-    it("should emit null for selectedItem$ if ID is not found", async () => {
+    it("should emit null for selectedItem$ if ID is not found in the array", async () => {
+      mockModel._data$.next(items);
       viewModel.selectItem("non-existent-id");
+      // It might take a microtask for combineLatest to emit, ensure data is there first
+      await vi.waitFor(async () => {
+        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      });
+    });
+    
+    it("should emit null for selectedItem$ if data$ is an empty array", async () => {
+      mockModel._data$.next([]); // Data is an empty array
+      viewModel.selectItem("a"); // Try to select something
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
 
     it("should emit null for selectedItem$ if data$ is not an array", async () => {
-      mockModel._data$.next({ id: "single", name: "Single Item" }); // Change model data to single item
+      mockModel._data$.next({ id: "single", name: "Single Item" } as Item); // Change model data to single item
       viewModel.selectItem("single"); // Try to select
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Should still be null as it expects an array
     });
 
-    it.skip("should react to changes in data$ and update selectedItem$", async () => {
+    it("should react to changes in data$ and update selectedItem$", async () => {
+      mockModel._data$.next(items); // Initial data
+      
       // Select 'a'
       viewModel.selectItem("a");
-      expect(await firstValueFrom(viewModel.selectedItem$)).toEqual(items[0]);
+      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
 
-      // Simulate data update where 'a' is removed (e.g., via delete or refetch)
+      // Simulate data update where 'a' is removed
       const newItems: ItemArray = [
         { id: "b", name: "Bob" },
         { id: "c", name: "Charlie" },
       ];
-      // Since selectedItem$ is combineLatest with data$, this change will trigger a recalculation
-      mockModel._data$.next(newItems);
+      mockModel._data$.next(newItems); // This triggers re-evaluation of selectedItem$
 
-      // selectedItem$ should now be null because 'a' is gone from the new data
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
-
+      // selectedItem$ should now be null because 'a' (the selectedId) is gone from the new data
+      // It might take a moment for combineLatest to propagate.
+      await vi.waitFor(async () => {
+        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      });
+      
       // Select 'b' from new data
       viewModel.selectItem("b");
-      expect(await firstValueFrom(viewModel.selectedItem$)).toEqual(
-        newItems[0]
-      );
+      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(newItems[0]);
     });
 
-    it.skip("should handle selectItem(null) to clear selection", async () => {
+    it("should handle selectItem(null) to clear selection", async () => {
+      mockModel._data$.next(items);
       viewModel.selectItem("a");
-      expect(await firstValueFrom(viewModel.selectedItem$)).toEqual(items[0]);
+      // Wait for the selection to propagate
+      await vi.waitFor(async () => {
+        expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
+      });
 
       viewModel.selectItem(null);
+      await vi.waitFor(async () => {
+        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      });
+    });
+  });
+
+  describe("dispose method", () => {
+    it("should call dispose on the underlying model", () => {
+      const modelDisposeSpy = vi.spyOn(mockModel, "dispose");
+      viewModel.dispose();
+      expect(modelDisposeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("should call dispose on all command instances", () => {
+      const fetchDisposeSpy = vi.spyOn(viewModel.fetchCommand, "dispose");
+      const createDisposeSpy = vi.spyOn(viewModel.createCommand, "dispose");
+      const updateDisposeSpy = vi.spyOn(viewModel.updateCommand, "dispose");
+      const deleteDisposeSpy = vi.spyOn(viewModel.deleteCommand, "dispose");
+
+      viewModel.dispose();
+
+      expect(fetchDisposeSpy).toHaveBeenCalledTimes(1);
+      expect(createDisposeSpy).toHaveBeenCalledTimes(1);
+      expect(updateDisposeSpy).toHaveBeenCalledTimes(1);
+      expect(deleteDisposeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("should complete the _selectedItemId$ subject", () => {
+      // Spy on the internal subject's complete method
+      // Accessing private/protected members for testing is sometimes necessary.
+      const selectedItemIdSubject = (viewModel as any)._selectedItemId$ as BehaviorSubject<string | null>;
+      const completeSpy = vi.spyOn(selectedItemIdSubject, "complete");
+      
+      viewModel.dispose();
+      
+      expect(completeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("should prevent new selections after disposal", async () => {
+      viewModel.dispose();
+      viewModel.selectItem("a"); // Attempt to select after disposal
+      // selectedItem$ should ideally remain null or not emit new values.
+      // Since _selectedItemId$ is completed, new values to it won't propagate through combineLatest in the same way.
+      // The existing value (likely null after completion if it emits one last time) should persist.
+      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Or its last value before completion
+      
+      // Try to select again to ensure it's not just the initial state
+      viewModel.selectItem("b");
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
   });
