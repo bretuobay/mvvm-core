@@ -7,8 +7,8 @@ export default defineConfig({
     lib: {
       entry: "./src/index.ts",
       formats: ["es", "umd"],
-      name: "mvvm-core",
-      fileName: "mvvm-core",
+      name: "index",
+      fileName: "index",
     },
   },
   plugins: [dts({ insertTypesEntry: true, outDir: "dist" })], // also specify for dts plugin
