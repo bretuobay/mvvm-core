@@ -1,5 +1,5 @@
 // src/viewmodels/RestfulApiViewModel.ts
-import { BehaviorSubject, combineLatest, Observable, Subscription } from "rxjs";
+import { BehaviorSubject, combineLatest, Observable } from "rxjs";
 import { map, startWith } from "rxjs/operators";
 import { RestfulApiModel } from "../models/RestfulApiModel";
 import { Command } from "../commands/Command"; // Assuming Command is in '../commands'
@@ -8,7 +8,6 @@ import { ZodSchema } from "zod";
 // Helper type to check if TData is an array and extract item type
 type ItemWithId = { id: string; [key: string]: any };
 type ExtractItemType<T> = T extends (infer U)[] ? U : T;
-
 
 /**
  * @class RestfulApiViewModel
@@ -52,8 +51,9 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
   // If TData is an array, you might want to manage selections, filters, etc.
   // This example assumes TData can be an array where items have an 'id'
   public readonly selectedItem$: Observable<ExtractItemType<TData> | null>;
-  protected readonly _selectedItemId$ = new BehaviorSubject<string | null>(null);
-  private _selectedItemSubscription: Subscription | undefined;
+  protected readonly _selectedItemId$ = new BehaviorSubject<string | null>(
+    null
+  );
 
   /**
    * @param model An instance of RestfulApiModel that this ViewModel will manage.
@@ -71,8 +71,14 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
     this.error$ = this.model.error$;
 
     // Initialize Commands
-    this.fetchCommand = new Command(async (id?: string | string[]) => { // void parameter implies undefined
-      await this.model.fetch(id);
+    /** Look into issue with TypeScript:
+     * Type 'string | void | string[]' is not assignable to type 'string | string[] | undefined'.
+    Type 'void' is not assignable to type 'string | string[] | undefined'.
+     */
+    this.fetchCommand = new Command(async (id: string | string[] | void) => {
+      // void parameter implies undefined
+      const ids = Array.isArray(id) ? id : id ? [id] : undefined;
+      await this.model.fetch(ids);
     });
 
     this.createCommand = new Command(async (payload: Partial<TData>) => {
