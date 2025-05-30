@@ -1,12 +1,21 @@
-export * from "./collections/ObservableCollection";
-export * from "./commands/Command";
-export * from "./models/BaseModel";
-export * from "./models/RestfulApiModel";
-export * from "./viewmodels/BaseViewModel";
+import { ObservableCollection } from "./collections/ObservableCollection";
+import { Command } from "./commands/Command";
+import { TodoItem } from "./examples/models/TodoItem";
+import { TodoListViewModel } from "./examples/viewmodels/TodoListViewModel";
+import { BaseModel } from "./models/BaseModel";
+import { RestfulApiModel } from "./models/RestfulApiModel";
+import { BaseViewModel } from "./viewmodels/BaseViewModel";
 
-// examples:
-export * from "./examples/models/TodoItem";
-export * from "./examples/viewmodels/TodoListViewModel";
+export {
+  ObservableCollection,
+  Command,
+  BaseModel,
+  RestfulApiModel,
+  BaseViewModel,
+  // examples:
+  TodoItem,
+  TodoListViewModel,
+};
 
 export type { Fetcher } from "./models/RestfulApiModel";
 export type { ICommand } from "./commands/Command";
