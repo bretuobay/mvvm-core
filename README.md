@@ -52,7 +52,7 @@ export type User = z.infer<typeof UserSchema>;
 
 export class UserModel extends BaseModel<User, typeof UserSchema> {
     constructor(initialData?: User) {
-        super(initialData || null, UserSchema);
+        super({ initialData: initialData || null, schema: UserSchema });
     }
 }
 ```
@@ -96,7 +96,13 @@ const myCustomFetcher: Fetcher = async (url, options) => {
 export class UserApiModels extends RestfulApiModel<User[], typeof UserSchema> {
     constructor() {
         // Assuming your API returns an array of users for the base endpoint
-        super('[https://api.yourapp.com](https://api.yourapp.com)', 'users', myCustomFetcher, z.array(UserSchema));
+        super({
+            baseUrl: 'https://api.yourapp.com',
+            endpoint: 'users',
+            fetcher: myCustomFetcher,
+            schema: z.array(UserSchema),
+            initialData: null // Or provide initial data if available
+        });
     }
 }
 ```
