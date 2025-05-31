@@ -16,7 +16,10 @@ describe("BaseModel", () => {
   let model: BaseModel<TestDataType, typeof TestSchema>;
 
   beforeEach(() => {
-    model = new BaseModel<TestDataType, typeof TestSchema>(null, TestSchema);
+    model = new BaseModel<TestDataType, typeof TestSchema>({
+      initialData: null,
+      schema: TestSchema,
+    });
   });
 
   it("should initialize with null data, not loading, and no error", async () => {
@@ -27,10 +30,10 @@ describe("BaseModel", () => {
 
   it("should set initial data correctly", async () => {
     const initialData = { id: "1", name: "Initial", age: 30 };
-    const newModel = new BaseModel<TestDataType, typeof TestSchema>(
+    const newModel = new BaseModel<TestDataType, typeof TestSchema>({
       initialData,
-      TestSchema
-    );
+      schema: TestSchema,
+    });
     expect(await newModel.data$.pipe(first()).toPromise()).toEqual(initialData);
   });
 
@@ -68,7 +71,10 @@ describe("BaseModel", () => {
   });
 
   it("should not throw if no schema is provided", () => {
-    const noSchemaModel = new BaseModel<any, any>(null, undefined);
+    const noSchemaModel = new BaseModel<any, any>({
+      initialData: null,
+      schema: undefined, // No schema provided
+    });
     const data = { foo: "bar" };
     expect(() => noSchemaModel.validate(data)).not.toThrow();
     expect(noSchemaModel.validate(data)).toEqual(data); // Returns data as is

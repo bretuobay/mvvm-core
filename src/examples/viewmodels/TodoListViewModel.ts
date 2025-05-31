@@ -9,7 +9,10 @@ import { BaseViewModel } from "../../viewmodels/BaseViewModel";
 // Create a dummy BaseModel for the ViewModel since BaseViewModel expects one.
 class DummyModel extends BaseModel<null, any> {
   constructor() {
-    super(null);
+    super({
+      initialData: null,
+      schema: null, // No schema needed for this dummy model
+    });
   }
 }
 
@@ -40,7 +43,15 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
   private addTodo(): void {
     const text = this._newTodoText$.value.trim();
     if (text) {
-      const newTodo = new TodoItem(Date.now().toString(), text);
+      const newTodo = new TodoItem({
+        initialData: {
+          id: crypto.randomUUID(), // Generate a unique ID
+          text: text,
+          isCompleted: false,
+        },
+        schema: {}, // No schema needed for TodoItem
+      });
+
       this.todos.add(newTodo);
       this._newTodoText$.next("");
     }

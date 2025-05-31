@@ -7,8 +7,18 @@ export interface TodoItemData {
 }
 
 export class TodoItem extends BaseModel<TodoItemData, any> {
-  constructor(id: string, text: string, isCompleted: boolean = false) {
-    super({ id, text, isCompleted });
+  constructor({
+    initialData,
+    schema: {},
+  }: {
+    initialData: TodoItemData;
+    schema: any;
+  }) {
+    const { id, text, isCompleted } = initialData;
+    super({
+      initialData: { id, text, isCompleted },
+      schema: {},
+    });
   }
 
   public get id(): string {

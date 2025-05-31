@@ -24,6 +24,14 @@ export type Fetcher = <TResponse = any>(
   options?: RequestInit
 ) => Promise<TResponse>;
 
+export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
+  baseUrl: string | null;
+  endpoint: string | null;
+  fetcher: Fetcher | null;
+  schema: TSchema;
+  initialData: TData | null;
+};
+
 /**
  * @class RestfulApiModel
  * Extends BaseModel to provide capabilities for interacting with RESTful APIs.
@@ -47,14 +55,9 @@ export class RestfulApiModel<
    * @param schema The Zod schema to validate the data.
    * @param initialData Optional initial data for the model.
    */
-  constructor(
-    baseUrl: string | null,
-    endpoint: string | null,
-    fetcher: Fetcher | null,
-    schema: TSchema,
-    initialData: TData | null = null
-  ) {
-    super(initialData, schema);
+  constructor(input: TConstructorInput<TData, TSchema>) {
+    const { baseUrl, endpoint, fetcher, schema, initialData } = input;
+    super({ initialData, schema });
     if (!baseUrl || !endpoint || !fetcher) {
       throw new Error(
         "RestfulApiModel requires baseUrl, endpoint, and fetcher."
