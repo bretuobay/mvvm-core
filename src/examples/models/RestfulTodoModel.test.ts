@@ -1,5 +1,6 @@
 /// <reference types="vitest/globals" />
 import { firstValueFrom } from 'rxjs';
+import { ZodError } from 'zod';
 import { RestfulTodoListModel } from './RestfulTodoModel';
 import { RestfulTodoData, RestfulTodoListSchema, RestfulTodoSchema } from './RestfulTodoSchema';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'; // Using vitest/jest like syntax
@@ -67,7 +68,8 @@ describe('RestfulTodoListModel', () => {
       } catch (e) {
         // Error is expected
       }
-      expect(await firstValueFrom(model.error$)).toBeInstanceOf(Error);
+      const error = await firstValueFrom(model.error$);
+      expect(error).toBeInstanceOf(ZodError);
       expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
   });
@@ -83,7 +85,7 @@ describe('RestfulTodoListModel', () => {
         json: async () => newTodoResponse, text: async () => JSON.stringify(newTodoResponse)
       });
 
-      const createPromise = model.create(newTodoPayload);
+      const createPromise = model.create(newTodoPayload as any);
 
       // Check optimistic update (temporary ID might be present)
       const optimisticData = await firstValueFrom(model.data$);
@@ -104,7 +106,7 @@ describe('RestfulTodoListModel', () => {
       mockFetcher.mockRejectedValueOnce(error);
 
       try {
-        await model.create(newTodoPayload);
+        await model.create(newTodoPayload as any);
       } catch (e) {
         expect(e).toBe(error);
       }
@@ -125,7 +127,7 @@ describe('RestfulTodoListModel', () => {
         json: async () => updatedTodoResponse, text: async () => JSON.stringify(updatedTodoResponse)
       });
 
-      const updatePromise = model.update(initialTodo.id, updatePayload);
+      const updatePromise = model.update(initialTodo.id, updatePayload as any);
 
       // Check optimistic update
       expect((await firstValueFrom(model.data$))![0].text).toBe(updatePayload.text);
@@ -143,7 +145,7 @@ describe('RestfulTodoListModel', () => {
       mockFetcher.mockRejectedValueOnce(error);
 
       try {
-        await model.update(initialTodo.id, updatePayload);
+        await model.update(initialTodo.id, updatePayload as any);
       } catch (e) {
         expect(e).toBe(error);
       }

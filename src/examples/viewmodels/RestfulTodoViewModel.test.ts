@@ -6,12 +6,17 @@ import { vi, describe, it, expect, beforeEach, Mock, afterEach } from 'vitest'; 
 import { BehaviorSubject, of, Subject } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 
+// Type-only import for RestfulTodoData to be used in the mock factory.
+// This helps ensure that only type information is pulled in here, reducing hoisting issues.
+import type { RestfulTodoData as ImportedRestfulTodoData } from '../models/RestfulTodoSchema';
 
-// Mock RestfulTodoListModel
-vi.mock('../models/RestfulTodoModel', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../models/RestfulTodoModel')>();
+vi.mock('../models/RestfulTodoModel', () => {
+  // This factory function is hoisted.
+  // It should be self-contained or rely on imports that are also hoisted correctly (like top-level imports).
+
   const mockModelInstance = {
-    data$: new BehaviorSubject<RestfulTodoData[] | null>(null),
+    // Use the top-level imported BehaviorSubject and RestfulTodoData type
+    data$: new BehaviorSubject<ImportedRestfulTodoData[] | null>(null),
     isLoading$: new BehaviorSubject<boolean>(false),
     error$: new BehaviorSubject<any>(null),
     fetch: vi.fn(),
@@ -19,13 +24,23 @@ vi.mock('../models/RestfulTodoModel', async (importOriginal) => {
     update: vi.fn(),
     delete: vi.fn(),
     dispose: vi.fn(),
-    // Add other methods if they are directly called by the ViewModel
   };
+
   return {
-    ...actual,
+    // Provide the RestfulTodoListModel constructor mock.
+    // This is what the ViewModel will call: new RestfulTodoListModel(...).
     RestfulTodoListModel: vi.fn(() => mockModelInstance),
+    // We are not including other exports from '../models/RestfulTodoModel' here
+    // to keep the mock focused and avoid potential issues with those other exports
+    // if they were causing the hoisting problem (e.g. if 'RestfulTodoModel' class itself had issues).
+    // The test file primarily uses RestfulTodoListModel.
   };
 });
+
+// The rest of the file (imports for the test itself, describe blocks, etc.) remains the same.
+// For example, the test file will still have its own:
+// import { RestfulTodoListModel } from '../models/RestfulTodoModel';
+// but this import will now resolve to the mocked constructor provided above.
 
 
 describe('RestfulTodoViewModel', () => {
