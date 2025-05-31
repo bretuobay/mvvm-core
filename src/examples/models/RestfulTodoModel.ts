@@ -1,19 +1,35 @@
-import { RestfulApiModel, TConstructorInput } from '../../models/RestfulApiModel'; // Adjusted path
-import { RestfulTodoSchema, RestfulTodoData, RestfulTodoListSchema, RestfulTodoListData } from './RestfulTodoSchema'; // Adjusted path
-import { z, ZodSchema } from 'zod';
+import {
+  RestfulApiModel,
+  TConstructorInput,
+} from "../../models/RestfulApiModel"; // Adjusted path
+import {
+  RestfulTodoSchema,
+  RestfulTodoData,
+  RestfulTodoListSchema,
+  RestfulTodoListData,
+} from "./RestfulTodoSchema"; // Adjusted path
 
 // Type for the constructor input, specifically for a single Todo item
-export type TRestfulTodoConstructorInput = TConstructorInput<RestfulTodoData, typeof RestfulTodoSchema>;
+export type TRestfulTodoConstructorInput = TConstructorInput<
+  RestfulTodoData,
+  typeof RestfulTodoSchema
+>;
 
 // Type for the constructor input, specifically for a list of Todo items
-export type TRestfulTodoListConstructorInput = TConstructorInput<RestfulTodoListData, typeof RestfulTodoListSchema>;
+export type TRestfulTodoListConstructorInput = TConstructorInput<
+  RestfulTodoListData,
+  typeof RestfulTodoListSchema
+>;
 
 /**
  * @class RestfulTodoModel
  * Extends RestfulApiModel to manage a single Todo item.
  * It uses the RestfulTodoSchema for data validation.
  */
-export class RestfulTodoModel extends RestfulApiModel<RestfulTodoData, typeof RestfulTodoSchema> {
+export class RestfulTodoModel extends RestfulApiModel<
+  RestfulTodoData,
+  typeof RestfulTodoSchema
+> {
   constructor(input: TRestfulTodoConstructorInput) {
     super({
       ...input,
@@ -40,7 +56,10 @@ export class RestfulTodoModel extends RestfulApiModel<RestfulTodoData, typeof Re
  * Extends RestfulApiModel to manage a collection of Todo items.
  * It uses the RestfulTodoListSchema for data validation.
  */
-export class RestfulTodoListModel extends RestfulApiModel<RestfulTodoListData, typeof RestfulTodoListSchema> {
+export class RestfulTodoListModel extends RestfulApiModel<
+  RestfulTodoListData,
+  typeof RestfulTodoListSchema
+> {
   constructor(input: TRestfulTodoListConstructorInput) {
     super({
       ...input,
