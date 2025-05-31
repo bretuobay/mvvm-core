@@ -44,10 +44,12 @@ Your custom model class will extend `RestfulApiModel` and be configured for a sp
 
 **Constructor Parameters:**
 
+The constructor accepts a single input object with the following properties:
 *   `baseUrl`: The base URL of your API (e.g., `https://api.example.com`).
 *   `endpoint`: The specific path for the resource (e.g., `users`, `profile`).
 *   `fetcher`: A function responsible for making the actual HTTP requests. This allows you to use `window.fetch`, a library like `axios`, or any custom fetching logic.
 *   `schema`: The Zod schema for validating the data (`TData`) this model handles.
+*   `initialData` (optional): Initial data for the model.
 
 **Fetcher Function Example:**
 
@@ -98,7 +100,13 @@ import { appFetcher } from '../utils/fetcher';
 
 export class UserCollectionApiModel extends RestfulApiModel<User[], z.ZodArray<typeof UserSchema>> {
   constructor() {
-    super('https://api.yourapp.com', 'users', appFetcher, z.array(UserSchema));
+    super({
+      baseUrl: 'https://api.yourapp.com',
+      endpoint: 'users',
+      fetcher: appFetcher,
+      schema: z.array(UserSchema),
+      initialData: null // Or an empty array [] if that's preferred for collections
+    });
   }
 
   // You can add custom methods here if needed, e.g.:
@@ -121,7 +129,13 @@ import { appFetcher } from '../utils/fetcher';
 export class UserProfileApiModel extends RestfulApiModel<UserProfile, typeof UserProfileSchema> {
   constructor(userId: string) {
     // Endpoint might be dynamic, e.g., users/{userId}/profile
-    super('https://api.yourapp.com', `users/${userId}/profile`, appFetcher, UserProfileSchema);
+    super({
+      baseUrl: 'https://api.yourapp.com',
+      endpoint: `users/${userId}/profile`,
+      fetcher: appFetcher,
+      schema: UserProfileSchema,
+      initialData: null
+    });
   }
 
   // Example: Custom method to update specific fields
