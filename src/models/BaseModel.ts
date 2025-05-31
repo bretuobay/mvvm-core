@@ -29,6 +29,11 @@ export interface IBaseModel<TData, TSchema extends ZodSchema<TData>>
   validate(data: any): TData;
 }
 
+export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
+  initialData?: TData | null;
+  schema?: TSchema;
+};
+
 /**
  * @class BaseModel
  * A base class for models in an MVVM architecture, providing core functionalities
@@ -63,7 +68,9 @@ export class BaseModel<TData, TSchema extends ZodSchema<TData>>
     this._error$.complete();
   }
 
-  constructor(initialData: TData | null = null, schema?: TSchema) {
+  constructor(input: TConstructorInput<TData, TSchema>) {
+    const { initialData = null, schema } = input;
+    // Initialize the data observable with the provided initial data
     if (initialData !== null) {
       this._data$.next(initialData);
     }

@@ -42,7 +42,14 @@ class MockRestfulApiModel extends RestfulApiModel<
   constructor() {
     // Call the parent constructor with dummy values.
     // The actual methods are mocked below.
-    super("http://mockapi.com", "items", mockFetcher, z.array(ItemSchema)); // Use z.array(ItemSchema) for ItemArray scenario
+    // super("http://mockapi.com", "items", mockFetcher, z.array(ItemSchema)); // Use z.array(ItemSchema) for ItemArray scenario
+    super({
+      baseUrl: "http://mockapi.com",
+      endpoint: "items",
+      fetcher: mockFetcher,
+      schema: ItemSchema, // Use ItemSchema for single item
+      initialData: null, // Start with no initial data
+    });
   }
 
   // Now override the actual methods of RestfulApiModel using vi.fn()
@@ -148,7 +155,13 @@ describe("RestfulApiViewModel", () => {
   let viewModel: RestfulApiViewModel<ItemArray, z.ZodArray<typeof ItemSchema>>;
 
   beforeEach(() => {
-    mockModel = new MockRestfulApiModel();
+    mockModel = new MockRestfulApiModel({
+      baseUrl: "http://mockapi.com",
+      endpoint: "items",
+      fetcher: mockFetcher,
+      schema: ItemSchema, // Use ItemSchema for single item
+      initialData: null, // Start with no initial data
+    });
     viewModel = new RestfulApiViewModel(mockModel);
   });
 
@@ -160,7 +173,13 @@ describe("RestfulApiViewModel", () => {
   it("should throw an error if model is not an instance of RestfulApiModel", () => {
     // We use a completely different class (BaseModel) to trigger the error.
     expect(
-      () => new RestfulApiViewModel(new BaseModel(null, ItemSchema) as any)
+      () =>
+        new RestfulApiViewModel(
+          new BaseModel({
+            initialData: null,
+            schema: ItemSchema,
+          })
+        )
     ).toThrow("RestfulApiViewModel requires an instance of RestfulApiModel.");
   });
 

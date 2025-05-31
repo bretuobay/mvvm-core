@@ -15,7 +15,10 @@ type TestDataType = z.infer<typeof TestSchema>;
 
 class MockBaseModel extends BaseModel<TestDataType, typeof TestSchema> {
   constructor(initialData: TestDataType | null = null) {
-    super(initialData, TestSchema);
+    super({
+      initialData,
+      schema: TestSchema,
+    });
   }
 }
 
