@@ -12,5 +12,5 @@ export default defineConfig({
       fileName: "index",
     },
   },
-  plugins: [dts({ insertTypesEntry: true, outDir: "dist", tsconfigPath: './tsconfig.json' })], // also specify for dts plugin
+  plugins: [dts({ insertTypesEntry: true, outDir: "dist", tsconfigPath: './tsconfig.json', rollupTypes: true })], // also specify for dts plugin
 });
