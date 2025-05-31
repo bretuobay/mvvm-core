@@ -23,3 +23,11 @@ export type { Fetcher } from "./models/RestfulApiModel";
 export type { ICommand } from "./commands/Command";
 export type { IObservableCollection } from "./collections/ObservableCollection";
 export type { IBaseModel } from "./models/BaseModel";
+
+// Exports for Restful Todo Example
+export { FakeTodoApi } from './examples/api/FakeTodoApi';
+export { RestfulTodoSchema, RestfulTodoListSchema } from './examples/models/RestfulTodoSchema';
+export type { RestfulTodoData, RestfulTodoListData } from './examples/models/RestfulTodoSchema';
+export { RestfulTodoModel, RestfulTodoListModel } from './examples/models/RestfulTodoModel';
+export type { TRestfulTodoConstructorInput, TRestfulTodoListConstructorInput } from './examples/models/RestfulTodoModel';
+export { RestfulTodoViewModel } from './examples/viewmodels/RestfulTodoViewModel';
