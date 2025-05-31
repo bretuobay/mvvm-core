@@ -16,9 +16,7 @@
     "moduleDetection": "force",
     "noEmit": false,
     "declaration": true,
-    // "declarationDir": "./dist",
-    "declarationMap": true,
-    "emitDeclarationOnly": false,
+    "emitDeclarationOnly": true,
     "outDir": "dist",
     /* Linting */
     "strict": true,

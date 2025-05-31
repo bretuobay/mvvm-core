@@ -3,6 +3,7 @@ import dts from "vite-plugin-dts";
 
 export default defineConfig({
   build: {
+    clearScreen: false,
     outDir: "dist", // Explicitly set outDir
     lib: {
       entry: "./src/index.ts",
@@ -11,5 +12,5 @@ export default defineConfig({
       fileName: "index",
     },
   },
-  plugins: [dts({ insertTypesEntry: true, outDir: "dist" })], // also specify for dts plugin
+  plugins: [dts({ insertTypesEntry: true, outDir: "dist", tsconfigPath: './tsconfig.json' })], // also specify for dts plugin
 });
