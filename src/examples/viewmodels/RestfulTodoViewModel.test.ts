@@ -19,7 +19,6 @@ vi.mock('../models/RestfulTodoModel', async (importOriginal) => {
     update: vi.fn(),
     delete: vi.fn(),
     dispose: vi.fn(),
-    getData: vi.fn(() => mockModelInstance.data$.getValue()),
     // Add other methods if they are directly called by the ViewModel
   };
   return {

@@ -1,4 +1,5 @@
 /// <reference types="vitest/globals" />
+import { firstValueFrom } from 'rxjs';
 import { RestfulTodoListModel } from './RestfulTodoModel';
 import { RestfulTodoData, RestfulTodoListSchema, RestfulTodoSchema } from './RestfulTodoSchema';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'; // Using vitest/jest like syntax
@@ -28,10 +29,10 @@ describe('RestfulTodoListModel', () => {
     model.dispose();
   });
 
-  it('should initialize correctly', () => {
-    expect(model.getData()).toBeNull();
-    expect(model.isLoading()).toBe(false);
-    expect(model.getError()).toBeNull();
+  it('should initialize correctly', async () => {
+    expect(await firstValueFrom(model.data$)).toBeNull();
+    expect(await firstValueFrom(model.isLoading$)).toBe(false); // isLoading$ is also an observable
+    expect(await firstValueFrom(model.error$)).toBeNull();     // error$ is also an observable
   });
 
   describe('fetch', () => {
@@ -43,18 +44,18 @@ describe('RestfulTodoListModel', () => {
 
       await model.fetch();
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}${endpoint}`, expect.objectContaining({ method: 'GET' }));
-      expect(model.getData()).toEqual(initialTodoList);
-      expect(model.isLoading()).toBe(false);
-      expect(model.getError()).toBeNull();
+      expect(await firstValueFrom(model.data$)).toEqual(initialTodoList);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
+      expect(await firstValueFrom(model.error$)).toBeNull();
     });
 
     it('should handle fetch error', async () => {
       const error = new Error('Fetch failed');
       mockFetcher.mockRejectedValueOnce(error);
-      await model.fetch();
-      expect(model.getError()).toBe(error);
-      expect(model.isLoading()).toBe(false);
-      expect(model.getData()).toBeNull();
+      await model.fetch(); // fetch itself is async
+      expect(await firstValueFrom(model.error$)).toBe(error);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
+      expect(await firstValueFrom(model.data$)).toBeNull();
     });
      it('should handle fetch error with non-ok response', async () => {
       mockFetcher.mockResolvedValueOnce({
@@ -66,8 +67,8 @@ describe('RestfulTodoListModel', () => {
       } catch (e) {
         // Error is expected
       }
-      expect(model.getError()).toBeInstanceOf(Error); // Zod error or fetch error
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.error$)).toBeInstanceOf(Error);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
   });
 
@@ -85,7 +86,7 @@ describe('RestfulTodoListModel', () => {
       const createPromise = model.create(newTodoPayload);
 
       // Check optimistic update (temporary ID might be present)
-      const optimisticData = model.getData();
+      const optimisticData = await firstValueFrom(model.data$);
       expect(optimisticData).toHaveLength(1);
       expect(optimisticData![0].text).toBe(newTodoPayload.text);
       expect(optimisticData![0].id).toMatch(/^temp_/); // Check for temp ID
@@ -93,8 +94,8 @@ describe('RestfulTodoListModel', () => {
       await createPromise;
 
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}${endpoint}`, expect.objectContaining({ method: 'POST', body: JSON.stringify(newTodoPayload) }));
-      expect(model.getData()).toEqual([newTodoResponse]); // Replaced with server response
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.data$)).toEqual([newTodoResponse]); // Replaced with server response
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
 
     it('should revert optimistic create on server error', async () => {
@@ -107,9 +108,9 @@ describe('RestfulTodoListModel', () => {
       } catch (e) {
         expect(e).toBe(error);
       }
-      expect(model.getData()).toEqual([]); // Reverted
-      expect(model.getError()).toBe(error);
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.data$)).toEqual([]); // Reverted
+      expect(await firstValueFrom(model.error$)).toBe(error);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
   });
 
@@ -127,13 +128,13 @@ describe('RestfulTodoListModel', () => {
       const updatePromise = model.update(initialTodo.id, updatePayload);
 
       // Check optimistic update
-      expect(model.getData()![0].text).toBe(updatePayload.text);
+      expect((await firstValueFrom(model.data$))![0].text).toBe(updatePayload.text);
 
       await updatePromise;
 
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}${endpoint}/${initialTodo.id}`, expect.objectContaining({ method: 'PUT', body: JSON.stringify(updatePayload) }));
-      expect(model.getData()![0]).toEqual(updatedTodoResponse);
-      expect(model.isLoading()).toBe(false);
+      expect((await firstValueFrom(model.data$))![0]).toEqual(updatedTodoResponse);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
 
     it('should revert optimistic update on server error', async () => {
@@ -146,9 +147,9 @@ describe('RestfulTodoListModel', () => {
       } catch (e) {
         expect(e).toBe(error);
       }
-      expect(model.getData()).toEqual(initialTodoList); // Reverted
-      expect(model.getError()).toBe(error);
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.data$)).toEqual(initialTodoList); // Reverted
+      expect(await firstValueFrom(model.error$)).toBe(error);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
   });
 
@@ -163,12 +164,12 @@ describe('RestfulTodoListModel', () => {
       const deletePromise = model.delete(initialTodo.id);
 
       // Check optimistic update
-      expect(model.getData()).toEqual([]);
+      expect(await firstValueFrom(model.data$)).toEqual([]);
 
       await deletePromise;
       expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}${endpoint}/${initialTodo.id}`, expect.objectContaining({ method: 'DELETE' }));
-      expect(model.getData()).toEqual([]);
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.data$)).toEqual([]);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
 
     it('should revert optimistic delete on server error', async () => {
@@ -181,9 +182,9 @@ describe('RestfulTodoListModel', () => {
       } catch (e) {
         expect(e).toBe(error);
       }
-      expect(model.getData()).toEqual(initialTodoList); // Reverted
-      expect(model.getError()).toBe(error);
-      expect(model.isLoading()).toBe(false);
+      expect(await firstValueFrom(model.data$)).toEqual(initialTodoList); // Reverted
+      expect(await firstValueFrom(model.error$)).toBe(error);
+      expect(await firstValueFrom(model.isLoading$)).toBe(false);
     });
   });
 });
