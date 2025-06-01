@@ -141,7 +141,7 @@ describe("RestfulApiModel", () => {
       const fetchError = new Error("Network error");
       mockFetcher.mockRejectedValue(fetchError);
 
-      await model.fetch();
+      await expect(model.fetch()).rejects.toThrow("Network error");
 
       expect(await model.error$.pipe(first()).toPromise()).toBe(fetchError);
       expect(await model.isLoading$.pipe(first()).toPromise()).toBe(false); // Loading should be false after error
@@ -154,7 +154,7 @@ describe("RestfulApiModel", () => {
         headers: new Headers({ "Content-Type": "application/json" }),
       } as Response);
 
-      await model.fetch();
+      await expect(model.fetch()).rejects.toThrowError(ZodError);
 
       const error = await model.error$.pipe(first()).toPromise();
       expect(error).toBeInstanceOf(ZodError); // Assuming ZodError is correctly imported
