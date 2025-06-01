@@ -10,9 +10,25 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  optionalField: z.string().optional(),
 });
 
 type User = z.infer<typeof UserSchema>;
+
+// Helper to create an invalid user object (e.g., missing email)
+const createInvalidUser = (id: string, name: string): Partial<User> => ({
+  id,
+  name,
+  // email is missing
+});
+
+// Helper to create a user object with an invalid email format
+const createUserWithInvalidEmail = (id: string, name: string): User => ({
+  id,
+  name,
+  email: "not-a-valid-email",
+});
+
 
 describe("RestfulApiModel", () => {
   const baseUrl = "https://api.test.com";
@@ -178,6 +194,52 @@ describe("RestfulApiModel", () => {
         );
       }
       expect(await model.data$.pipe(first()).toPromise()).toBeNull(); // Data should not be set
+    });
+
+    it("should throw ZodError if fetched data is invalid and validateSchema is true (explicit)", async () => {
+      const modelValidateTrue = new RestfulApiModel<User, typeof UserSchema>({
+        baseUrl,
+        endpoint: "singleUser", // Using a different endpoint for clarity if needed
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: null,
+        validateSchema: true,
+      });
+
+      const invalidUserData = createUserWithInvalidEmail("1", "Invalid User");
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(invalidUserData),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      await expect(modelValidateTrue.fetch("1")).rejects.toThrowError(ZodError);
+      expect(await modelValidateTrue.error$.pipe(first()).toPromise()).toBeInstanceOf(ZodError);
+      expect(await modelValidateTrue.data$.pipe(first()).toPromise()).toBeNull();
+      modelValidateTrue.dispose();
+    });
+
+    it("should fetch and set invalid data if validateSchema is false", async () => {
+      const modelValidateFalse = new RestfulApiModel<User, typeof UserSchema>({
+        baseUrl,
+        endpoint: "singleUser",
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: null,
+        validateSchema: false,
+      });
+
+      const technicallyInvalidUserData = createInvalidUser("1", "Invalid User Allowed") as User; // Cast because it's partial
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(technicallyInvalidUserData),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      await expect(modelValidateFalse.fetch("1")).resolves.not.toThrow();
+      expect(await modelValidateFalse.error$.pipe(first()).toPromise()).toBeNull();
+      expect(await modelValidateFalse.data$.pipe(first()).toPromise()).toEqual(technicallyInvalidUserData);
+      modelValidateFalse.dispose();
     });
   });
 
@@ -439,6 +501,71 @@ describe("RestfulApiModel", () => {
       );
       singleItemModelFail.dispose();
     });
+
+    it("should throw ZodError on create if server response is invalid and validateSchema is true", async () => {
+      const modelValidateTrue = new RestfulApiModel<User[], typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema, // Note: schema is for single item, model handles array context if TData is User[]
+        initialData: [],
+        validateSchema: true,
+      });
+
+      const invalidServerResponse = createUserWithInvalidEmail("new-id", "Created Invalid");
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(invalidServerResponse),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const createPayload: Partial<User> = { name: "Test", email: "test@example.com" };
+      await expect(modelValidateTrue.create(createPayload)).rejects.toThrowError(ZodError);
+      expect(await modelValidateTrue.error$.pipe(first()).toPromise()).toBeInstanceOf(ZodError);
+      // Optimistic update should have been reverted
+      expect(await modelValidateTrue.data$.pipe(first()).toPromise()).toEqual([]);
+      modelValidateTrue.dispose();
+    });
+
+    it("should create and set invalid created item if validateSchema is false", async () => {
+      const modelValidateFalse = new RestfulApiModel<User[], typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: [],
+        validateSchema: false,
+      });
+
+      const invalidServerResponse = createInvalidUser("new-id-invalid", "Created Invalid Allowed") as User;
+       mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(invalidServerResponse),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const createPayload: Partial<User> = { name: "Test Valid Payload", email: "validpayload@example.com" };
+
+      // Create a temporary valid item for optimistic update based on payload
+      // This is a bit simplified; real optimistic would use a temp ID or the payload directly if it had an ID
+      const tempOptimisticItem = { ...createPayload, id: "temp_create_id_false_validate" } as User;
+
+
+      // Manually simulate optimistic update for this test case for clarity on what we expect before server response
+      // In a real scenario, model.create would do this internally.
+      // Here, we want to ensure the *server's* invalid data is accepted.
+      // So, we let create() do its optimistic part, then check the final state.
+
+      await expect(modelValidateFalse.create(createPayload)).resolves.toEqual(invalidServerResponse);
+      expect(await modelValidateFalse.error$.pipe(first()).toPromise()).toBeNull();
+
+      const currentData = await modelValidateFalse.data$.pipe(first()).toPromise();
+      // The optimistic update would have added an item. The server response (invalid) replaces it.
+      // The exact nature of optimistic update (temp ID vs. server ID) makes direct length check tricky without more detail.
+      // Key is that the invalidServerResponse is in the data.
+      expect(currentData).toEqual(expect.arrayContaining([invalidServerResponse]));
+      modelValidateFalse.dispose();
+    });
   });
 
   describe("update method", () => {
@@ -617,6 +744,57 @@ describe("RestfulApiModel", () => {
         updateError
       );
       singleItemModelFail.dispose();
+    });
+
+    it("should throw ZodError on update if server response is invalid and validateSchema is true", async () => {
+      const initialUser: User = { id: "1", name: "User Before Update", email: "user@example.com" };
+      const modelValidateTrue = new RestfulApiModel<User, typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: initialUser,
+        validateSchema: true,
+      });
+
+      const invalidServerResponse = createUserWithInvalidEmail("1", "Updated Invalid");
+      mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(invalidServerResponse),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const updatePayload: Partial<User> = { name: "Attempted Update" };
+      await expect(modelValidateTrue.update("1", updatePayload)).rejects.toThrowError(ZodError);
+      expect(await modelValidateTrue.error$.pipe(first()).toPromise()).toBeInstanceOf(ZodError);
+      // Optimistic update should have been reverted
+      expect(await modelValidateTrue.data$.pipe(first()).toPromise()).toEqual(initialUser);
+      modelValidateTrue.dispose();
+    });
+
+    it("should update and set invalid updated item if validateSchema is false", async () => {
+      const initialUser: User = { id: "1", name: "User Before Update Valid", email: "uservalid@example.com" };
+      const modelValidateFalse = new RestfulApiModel<User, typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: initialUser,
+        validateSchema: false,
+      });
+
+      const invalidServerResponse = createInvalidUser("1", "Updated Invalid Allowed") as User;
+       mockFetcher.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(invalidServerResponse),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      } as Response);
+
+      const updatePayload: Partial<User> = { name: "Attempted Update False" };
+      await expect(modelValidateFalse.update("1", updatePayload)).resolves.toEqual(invalidServerResponse);
+      expect(await modelValidateFalse.error$.pipe(first()).toPromise()).toBeNull();
+      expect(await modelValidateFalse.data$.pipe(first()).toPromise()).toEqual(invalidServerResponse);
+      modelValidateFalse.dispose();
     });
   });
 
