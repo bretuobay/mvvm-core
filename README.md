@@ -79,6 +79,8 @@ export class UserViewModel extends BaseViewModel<UserModel> {
 
 3. Using RestfulApiModel for CRUD
 
+The `RestfulApiModel` constructor takes an input object which, in addition to `baseUrl`, `endpoint`, `fetcher`, `schema`, and `initialData`, also accepts an optional `validateSchema` boolean (defaults to `true`). If set to `false`, Zod schema validation of the API response will be skipped.
+
 ```typescript
 // src/models/user.api.model.ts
 import { RestfulApiModel, Fetcher } from 'mvvm-core/RestfulApiModel'; // Adjust import path
@@ -100,8 +102,9 @@ export class UserApiModels extends RestfulApiModel<User[], typeof UserSchema> {
             baseUrl: 'https://api.yourapp.com',
             endpoint: 'users',
             fetcher: myCustomFetcher,
-            schema: z.array(UserSchema),
-            initialData: null // Or provide initial data if available
+            schema: z.array(UserSchema),     // The Zod schema for data validation (e.g., for an array of Users)
+            initialData: null,               // Optional initial data for the model
+            validateSchema: true           // Optional: defaults to true. Set to false to skip schema validation.
         });
     }
 }

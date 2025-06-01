@@ -30,6 +30,7 @@ export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
   fetcher: Fetcher | null;
   schema: TSchema;
   initialData: TData | null;
+  validateSchema?: boolean;
 };
 
 /**
@@ -47,6 +48,7 @@ export class RestfulApiModel<
   private readonly baseUrl: string;
   private readonly endpoint: string;
   private readonly fetcher: Fetcher;
+  private readonly _shouldValidateSchema: boolean;
 
   /**
    * @param baseUrl The base URL for the API (e.g., 'https://api.example.com').
@@ -56,7 +58,7 @@ export class RestfulApiModel<
    * @param initialData Optional initial data for the model.
    */
   constructor(input: TConstructorInput<TData, TSchema>) {
-    const { baseUrl, endpoint, fetcher, schema, initialData } = input;
+    const { baseUrl, endpoint, fetcher, schema, initialData, validateSchema } = input;
     super({ initialData, schema });
     if (!baseUrl || !endpoint || !fetcher) {
       throw new Error(
@@ -66,6 +68,7 @@ export class RestfulApiModel<
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     this.endpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
     this.fetcher = fetcher;
+    this._shouldValidateSchema = validateSchema === undefined ? true : validateSchema;
   }
 
   private getUrl(id?: string): string {
@@ -112,7 +115,7 @@ export class RestfulApiModel<
         data = response;
       }
 
-      if (this.schema && expectedType !== "none") {
+      if (this._shouldValidateSchema && this.schema && expectedType !== "none") {
         // If the model's schema (this.schema) is already an array type (e.g. z.array(ItemSchema))
         // and we expect a collection, then we use this.schema directly.
         // Otherwise, if we expect a collection and this.schema is for a single item, we wrap it.
