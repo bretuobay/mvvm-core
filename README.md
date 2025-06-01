@@ -193,7 +193,175 @@ export class AuthViewModel {
 }
 ```
 
-5. Using ObservableCollection
+### 5. Integrating `RestfulApiViewModel` with React
+
+This example demonstrates how to use `RestfulApiModel` and `RestfulApiViewModel` to fetch a list of items from a fake API endpoint and display them in a simple React functional component.
+
+**a. Define Item Schema and Type (e.g., `src/models/todo.types.ts`)**
+
+```typescript
+// src/models/todo.types.ts
+import { z } from 'zod';
+
+export const TodoSchema = z.object({
+  id: z.string(),
+  userId: z.number(),
+  title: z.string(),
+  completed: z.boolean(),
+});
+
+export type Todo = z.infer<typeof TodoSchema>;
+```
+
+**b. Create the `RestfulApiModel` (e.g., `src/models/todo.api.model.ts`)**
+
+```typescript
+// src/models/todo.api.model.ts
+import { RestfulApiModel, Fetcher } from 'your-library-name/models/RestfulApiModel'; // Adjust import path
+import { z } from 'zod';
+import { TodoSchema, Todo } from './todo.types';
+
+// A mock fetcher for demonstration purposes
+const mockTodoFetcher: Fetcher = async (url, options) => {
+  console.log(`Mock fetcher called: ${options?.method || 'GET'} ${url}`);
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  if (url.endsWith('/todos') && options?.method === 'GET') {
+    const mockTodos: Todo[] = [
+      { id: '1', userId: 1, title: 'Fake Todo 1 from API', completed: false },
+      { id: '2', userId: 1, title: 'Fake Todo 2 from API', completed: true },
+    ];
+    return new Response(JSON.stringify(mockTodos), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  // Fallback for other unhandled requests by the mock
+  return new Response(JSON.stringify({ message: 'Mocked endpoint not found' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+export class TodoListModel extends RestfulApiModel<Todo[], z.ZodArray<typeof TodoSchema>> {
+  constructor() {
+    super({
+      baseUrl: 'https://jsonplaceholder.typicode.com', // Using a real base URL for structure
+      endpoint: 'todos',                             // The specific endpoint
+      fetcher: mockTodoFetcher,                        // Our mock fetcher
+      schema: z.array(TodoSchema),                   // Expect an array of Todos
+      initialData: null,                             // No initial data
+    });
+  }
+}
+```
+
+**c. Create the `RestfulApiViewModel` (e.g., `src/viewmodels/todo.viewmodel.ts`)**
+
+```typescript
+// src/viewmodels/todo.viewmodel.ts
+import { RestfulApiViewModel } from 'your-library-name/viewmodels/RestfulApiViewModel'; // Adjust import path
+import { TodoListModel } from '../models/todo.api.model';
+import { Todo, TodoSchema } from '../models/todo.types';
+import { z } from 'zod';
+
+export class TodoViewModel extends RestfulApiViewModel<Todo[], z.ZodArray<typeof TodoSchema>> {
+  constructor() {
+    // Create an instance of the model
+    const todoListModel = new TodoListModel();
+    super(todoListModel);
+  }
+
+  // You can add specific methods or computed observables related to Todos here if needed
+  // For example, a command to fetch only completed todos (would require model changes)
+  // Or an observable that filters/maps the data$
+}
+```
+
+**d. Create a custom hook for using RxJS Observables in React (e.g., `src/hooks/useObservable.ts`)**
+
+This is a common pattern to bridge RxJS with React's state.
+
+```typescript
+// src/hooks/useObservable.ts
+import { useState, useEffect } from 'react';
+import { Observable } from 'rxjs';
+
+export function useObservable<T>(observable: Observable<T>, initialValue: T): T {
+  const [value, setValue] = useState<T>(initialValue);
+
+  useEffect(() => {
+    const subscription = observable.subscribe(setValue);
+    return () => subscription.unsubscribe();
+  }, [observable]);
+
+  return value;
+}
+```
+*Note: For more complex scenarios or production apps, consider robust libraries like `rxjs-hooks`.*
+
+**e. Create the React Component (e.g., `src/components/TodoList.tsx`)**
+
+```tsx
+// src/components/TodoList.tsx
+import React, { useMemo, useEffect } from 'react';
+import { TodoViewModel } from '../viewmodels/todo.viewmodel'; // Adjust path
+import { useObservable } from '../hooks/useObservable'; // Adjust path
+import { Todo } from '../models/todo.types'; // Adjust path
+
+const TodoListComponent: React.FC = () => {
+  // Instantiate the ViewModel. In a real app, you might use a context or DI.
+  const todoViewModel = useMemo(() => new TodoViewModel(), []);
+
+  // Subscribe to the ViewModel's observables
+  const todos = useObservable(todoViewModel.data$, null);
+  const isLoading = useObservable(todoViewModel.isLoading$, false);
+  const error = useObservable(todoViewModel.error$, null);
+
+  // Clean up the ViewModel when the component unmounts
+  useEffect(() => {
+    return () => {
+      todoViewModel.dispose();
+    };
+  }, [todoViewModel]);
+
+  const handleFetchTodos = () => {
+    todoViewModel.fetchCommand.execute();
+  };
+
+  return (
+    <div>
+      <h2>Todo List (React Example)</h2>
+      <button onClick={handleFetchTodos} disabled={isLoading}>
+        {isLoading ? 'Loading...' : 'Fetch Todos'}
+      </button>
+
+      {error && <p style={{ color: 'red' }}>Error: {error.message || 'Failed to fetch'}</p>}
+
+      {isLoading && !todos && <p>Loading todos...</p>}
+
+      {todos && todos.length > 0 && (
+        <ul>
+          {todos.map((todo: Todo) => (
+            <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+              {todo.title} (User ID: {todo.userId})
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!isLoading && todos && todos.length === 0 && <p>No todos found.</p>}
+    </div>
+  );
+};
+
+export default TodoListComponent;
+```
+
+This example provides a complete, albeit simplified, flow from defining data structures and models to consuming them in a React UI. Remember to adjust import paths (`your-library-name`) as per your actual library's name and structure.
+
+6. Using ObservableCollection
 ```typescript
 // src/viewmodels/todos.viewmodel.ts
 import { ObservableCollection } from 'mvvm-cores/ObservableCollection'; // Adjust import path

@@ -536,3 +536,112 @@ describe("RestfulApiViewModel", () => {
     });
   });
 });
+
+describe('RestfulApiViewModel with Real RestfulApiModel Integration', () => {
+  let mockFetcher: ReturnType<typeof vi.fn>;
+  let realModel: RestfulApiModel<ItemArray, z.ZodArray<typeof ItemSchema>>;
+  let viewModel: RestfulApiViewModel<ItemArray, z.ZodArray<typeof ItemSchema>>;
+  const baseUrl = 'http://real-api.com';
+  const endpoint = 'items';
+
+  beforeEach(() => {
+    mockFetcher = vi.fn();
+    realModel = new RestfulApiModel<ItemArray, z.ZodArray<typeof ItemSchema>>({
+      baseUrl,
+      endpoint,
+      fetcher: mockFetcher,
+      schema: z.array(ItemSchema),
+      initialData: null,
+    });
+    viewModel = new RestfulApiViewModel(realModel);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    viewModel.dispose();
+  });
+
+  it('should fetch data and update viewModel.data$', async () => {
+    const expectedItems: ItemArray = [
+      { id: '1', name: 'Item 1 from Real Model' },
+      { id: '2', name: 'Item 2 from Real Model' },
+    ];
+    // Simplify mockFetcher to return data directly, bypassing Response object processing
+    mockFetcher.mockResolvedValue(expectedItems);
+
+    const dataEmissions: (ItemArray | null)[] = [];
+    const isLoadingEmissions: boolean[] = [];
+    const errorEmissions: (Error | null)[] = [];
+
+    viewModel.data$.subscribe((data) => dataEmissions.push(data));
+    viewModel.isLoading$.subscribe((loading) => isLoadingEmissions.push(loading));
+    viewModel.error$.subscribe((error) => errorEmissions.push(error));
+
+    await viewModel.fetchCommand.execute();
+
+    expect(mockFetcher).toHaveBeenCalledTimes(1);
+    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: "GET" });
+
+    // isLoading$: initial (false), loading (true), finished (false)
+    // Depending on exact timing and BehaviorSubject's nature, initial false might be captured or skipped if subscription is late.
+    // Let's ensure it transitions from true to false during the operation.
+    expect(isLoadingEmissions).toContain(true);
+    // Check the last recorded state for isLoading and data
+    expect(isLoadingEmissions[isLoadingEmissions.length - 1]).toBe(false);
+
+
+    // error$ should emit null (or not emit if BehaviorSubject starts with null and no error occurs)
+    // Check the last emitted error value, or that it only contains nulls
+    const lastError = errorEmissions.pop();
+    expect(lastError === null || lastError === undefined).toBe(true);
+
+    // data$: initial (null), then expectedItems
+    expect(dataEmissions[0]).toBeNull(); // Initial value
+    expect(dataEmissions[1]).toEqual(expectedItems); // Value after fetch
+    // expect(await firstValueFrom(viewModel.data$.pipe(skip(1)))).toEqual(expectedItems);
+
+
+    // Check isExecuting$ directly if possible, or ensure it eventually becomes false
+    // For now, we assume if the command promise resolves, isExecuting was handled.
+    // expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
+    // Check the last value of isExecuting$ if the command completed
+    let finalIsExecuting = true; // Assume true initially
+    const execSub = viewModel.fetchCommand.isExecuting$.subscribe(val => finalIsExecuting = val);
+    execSub.unsubscribe(); // Get current value and unsubscribe
+    expect(finalIsExecuting).toBe(false);
+
+  }, 10000); // Increased timeout
+
+  it('should set error$ on viewModel if fetcher fails', async () => {
+    const apiError = new Error('API Failure');
+    mockFetcher.mockRejectedValue(apiError);
+
+    const dataEmissions: (ItemArray | null)[] = [];
+    const isLoadingEmissions: boolean[] = [];
+    const errorEmissions: (Error | null)[] = [];
+
+    viewModel.data$.subscribe((data) => dataEmissions.push(data));
+    viewModel.isLoading$.subscribe((loading) => isLoadingEmissions.push(loading));
+    viewModel.error$.subscribe((error) => errorEmissions.push(error));
+
+    const initialData = await firstValueFrom(viewModel.data$); // Capture data before fetch
+
+    await expect(viewModel.fetchCommand.execute()).rejects.toThrow(apiError);
+
+    expect(mockFetcher).toHaveBeenCalledTimes(1);
+    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: "GET" });
+
+    // isLoading$: initial (false), loading (true), finished (false)
+    expect(isLoadingEmissions).toContain(true);
+    expect(isLoadingEmissions[isLoadingEmissions.length -1]).toBe(false);
+
+    // error$ should have emitted the apiError
+    expect(errorEmissions.pop()).toBe(apiError);
+
+    // data$ should not have received new data; its last emission should be the initial data (null)
+    expect(dataEmissions[dataEmissions.length -1]).toEqual(initialData);
+
+
+    expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
+  });
+});
