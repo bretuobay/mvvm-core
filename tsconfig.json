@@ -40,6 +40,7 @@
     "**/*.test.ts",
     "**/*.spec.ts",
     "tests",
-    "__tests__"
+    "__tests__",
+    "**/*.broken.ts"
   ],
 }
