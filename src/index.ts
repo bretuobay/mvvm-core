@@ -31,3 +31,5 @@ export type { RestfulTodoData, RestfulTodoListData } from './examples/models/Res
 export { RestfulTodoModel, RestfulTodoListModel } from './examples/models/RestfulTodoModel';
 export type { TRestfulTodoConstructorInput, TRestfulTodoListConstructorInput } from './examples/models/RestfulTodoModel';
 export { RestfulTodoViewModel } from './examples/viewmodels/RestfulTodoViewModel';
+
+export * from './utilities';
