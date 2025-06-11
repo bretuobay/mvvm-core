@@ -1,1 +1,2 @@
-export * from './viewModelFactory';
+export * from "./viewModelFactory";
+export * from "./restfulViewModelFactory";
