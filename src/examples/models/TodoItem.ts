@@ -1,4 +1,4 @@
-import { BaseModel } from "../../models/BaseModel";
+import { BaseModel } from '../../models/BaseModel';
 
 export interface TodoItemData {
   id: string;
@@ -7,13 +7,7 @@ export interface TodoItemData {
 }
 
 export class TodoItem extends BaseModel<TodoItemData, any> {
-  constructor({
-    initialData,
-    schema: {},
-  }: {
-    initialData: TodoItemData;
-    schema: any;
-  }) {
+  constructor({ initialData, schema: {} }: { initialData: TodoItemData; schema: any }) {
     const { id, text, isCompleted } = initialData;
     super({
       initialData: { id, text, isCompleted },

@@ -1,9 +1,9 @@
-import { vi, describe, beforeEach, afterEach, it, expect } from "vitest";
-import { Command } from "./Command";
-import { BehaviorSubject } from "rxjs";
-import { first } from "rxjs/operators";
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import { Command } from './Command';
+import { BehaviorSubject } from 'rxjs';
+import { first } from 'rxjs/operators';
 
-describe("Command", () => {
+describe('Command', () => {
   // @ts-ignore
   let mockExecuteFn: vi.Mock;
   let command: Command<string, string>;
@@ -16,23 +16,21 @@ describe("Command", () => {
     vi.clearAllMocks();
   });
 
-  it("should initialize with canExecute$ true, isExecuting$ false, and no error", async () => {
+  it('should initialize with canExecute$ true, isExecuting$ false, and no error', async () => {
     command = new Command(mockExecuteFn);
     expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true);
     expect(await command.isExecuting$.pipe(first()).toPromise()).toBe(false);
     expect(await command.executeError$.pipe(first()).toPromise()).toBeNull();
   });
 
-  it("should throw error if executeFn is not a function", () => {
+  it('should throw error if executeFn is not a function', () => {
     // @ts-ignore
-    expect(() => new Command(null)).toThrow(
-      "Command requires an executeFn that is a function."
-    );
+    expect(() => new Command(null)).toThrow('Command requires an executeFn that is a function.');
   });
 
-  it("should execute the function and update states correctly", async () => {
+  it('should execute the function and update states correctly', async () => {
     command = new Command(mockExecuteFn);
-    const param = "test_param";
+    const param = 'test_param';
 
     const isExecutingStates: boolean[] = [];
     command.isExecuting$.subscribe((val) => isExecutingStates.push(val));
@@ -64,26 +62,26 @@ describe("Command", () => {
     const result = await executionPromise;
 
     // Expect states after execution
-    expect(result).toBe("Executed: test_param");
+    expect(result).toBe('Executed: test_param');
     expect(mockExecuteFn).toHaveBeenCalledWith(param);
     expect(await command.isExecuting$.pipe(first()).toPromise()).toBe(false); // Back to false
     expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true); // Back to true
     expect(await command.executeError$.pipe(first()).toPromise()).toBeNull(); // No error
   });
 
-  it("should set executeError$ if execution fails", async () => {
-    const error = new Error("Execution failed");
+  it('should set executeError$ if execution fails', async () => {
+    const error = new Error('Execution failed');
     mockExecuteFn.mockRejectedValue(error);
     command = new Command(mockExecuteFn);
 
-    await expect(command.execute("param")).rejects.toThrow(error);
+    await expect(command.execute('param')).rejects.toThrow(error);
 
     expect(await command.isExecuting$.pipe(first()).toPromise()).toBe(false);
     expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true);
     expect(await command.executeError$.pipe(first()).toPromise()).toBe(error);
   });
 
-  describe("canExecute$ with Observable condition", () => {
+  describe('canExecute$ with Observable condition', () => {
     let canExecuteSubject: BehaviorSubject<boolean>;
 
     beforeEach(() => {
@@ -91,7 +89,7 @@ describe("Command", () => {
       command = new Command(mockExecuteFn, canExecuteSubject.asObservable());
     });
 
-    it("should respect the canExecute$ observable", async () => {
+    it('should respect the canExecute$ observable', async () => {
       expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true);
 
       canExecuteSubject.next(false);
@@ -101,9 +99,9 @@ describe("Command", () => {
       expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true);
     });
 
-    it("should not execute if canExecute$ is false", async () => {
+    it('should not execute if canExecute$ is false', async () => {
       canExecuteSubject.next(false);
-      const result = await command.execute("param");
+      const result = await command.execute('param');
 
       expect(mockExecuteFn).not.toHaveBeenCalled();
       expect(result).toBeUndefined(); // Command returns undefined if not executable
@@ -111,12 +109,12 @@ describe("Command", () => {
       expect(await command.executeError$.pipe(first()).toPromise()).toBeNull();
     });
 
-    it("should return false for canExecute$ while executing", async () => {
+    it('should return false for canExecute$ while executing', async () => {
       canExecuteSubject.next(true); // Can execute
       const canExecuteStates: boolean[] = [];
       command.canExecute$.subscribe((val) => canExecuteStates.push(val));
 
-      const promise = command.execute("param");
+      const promise = command.execute('param');
 
       await Promise.resolve(); // Wait for state updates
       expect(canExecuteStates).toEqual([true, false]); // True initially, then false during execution
@@ -124,35 +122,31 @@ describe("Command", () => {
       expect(canExecuteStates).toEqual([true, false, true]); // Back to true after execution
     });
 
-    it("should still be false for canExecute$ if canExecuteSubject is false even if not executing", async () => {
+    it('should still be false for canExecute$ if canExecuteSubject is false even if not executing', async () => {
       canExecuteSubject.next(false);
       expect(await command.canExecute$.pipe(first()).toPromise()).toBe(false);
     });
   });
 
   // Test for canExecuteFn as a simple boolean function (deprecated warning test)
-  it("should warn and default canExecute$ to true if canExecuteFn is a function (deprecated usage)", async () => {
-    const consoleWarnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
-    command = new Command(mockExecuteFn, (param: string) => param === "valid"); // Deprecated usage
+  it('should warn and default canExecute$ to true if canExecuteFn is a function (deprecated usage)', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    command = new Command(mockExecuteFn, (param: string) => param === 'valid'); // Deprecated usage
     expect(await command.canExecute$.pipe(first()).toPromise()).toBe(true);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "canExecuteFn as a function for Command's constructor is deprecated."
-      )
+      expect.stringContaining("canExecuteFn as a function for Command's constructor is deprecated."),
     );
     consoleWarnSpy.mockRestore();
   });
 
-  it("should reject with a specific error if canExecuteFn is not an Observable or function", () => {
+  it('should reject with a specific error if canExecuteFn is not an Observable or function', () => {
     // @ts-ignore
     expect(() => new Command(mockExecuteFn, 123)).toThrow(
-      "canExecuteFn must be an Observable<boolean> or a function returning boolean/Observable<boolean>."
+      'canExecuteFn must be an Observable<boolean> or a function returning boolean/Observable<boolean>.',
     );
   });
 
-  describe("dispose", () => {
+  describe('dispose', () => {
     let commandWithDefaultCanExecute: Command<string, string>;
     let commandWithExternalCanExecute: Command<string, string>;
     let externalCanExecute$: BehaviorSubject<boolean>;
@@ -164,13 +158,10 @@ describe("Command", () => {
       externalCanExecute$ = new BehaviorSubject<boolean>(true);
 
       commandWithDefaultCanExecute = new Command(mockExecuteFnDispose);
-      commandWithExternalCanExecute = new Command(
-        mockExecuteFnDispose,
-        externalCanExecute$.asObservable()
-      );
+      commandWithExternalCanExecute = new Command(mockExecuteFnDispose, externalCanExecute$.asObservable());
     });
 
-    it("should complete internal observables when disposed (default canExecute)", () => {
+    it('should complete internal observables when disposed (default canExecute)', () => {
       const isExecutingCompleteSpy = vi.fn();
       const executeErrorCompleteSpy = vi.fn();
       const canExecuteCompleteSpy = vi.fn();
@@ -186,18 +177,16 @@ describe("Command", () => {
       expect(canExecuteCompleteSpy).toHaveBeenCalledTimes(1); // Derived observable should complete
     });
 
-    it("should complete internal observables and not external canExecute$ when disposed", () => {
+    it('should complete internal observables and not external canExecute$ when disposed', () => {
       const isExecutingCompleteSpy = vi.fn();
       const executeErrorCompleteSpy = vi.fn();
       const canExecuteCompleteSpy = vi.fn();
       const externalCanExecuteCompleteSpy = vi.fn();
 
-
       commandWithExternalCanExecute.isExecuting$.subscribe({ complete: isExecutingCompleteSpy });
       commandWithExternalCanExecute.executeError$.subscribe({ complete: executeErrorCompleteSpy });
       commandWithExternalCanExecute.canExecute$.subscribe({ complete: canExecuteCompleteSpy });
       externalCanExecute$.subscribe({ complete: externalCanExecuteCompleteSpy });
-
 
       commandWithExternalCanExecute.dispose();
 
@@ -212,27 +201,27 @@ describe("Command", () => {
       expect(externalCanExecuteCompleteSpy).not.toHaveBeenCalled(); // External should not complete
     });
 
-    it("should not allow execution and return undefined if execute is called after disposal", async () => {
+    it('should not allow execution and return undefined if execute is called after disposal', async () => {
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       commandWithDefaultCanExecute.dispose(); // Dispose first
-      
-      const result = await commandWithDefaultCanExecute.execute("test");
+
+      const result = await commandWithDefaultCanExecute.execute('test');
 
       expect(result).toBeUndefined(); // Should return undefined as per new dispose logic
       expect(mockExecuteFnDispose).not.toHaveBeenCalled();
-      expect(consoleLogSpy).toHaveBeenCalledWith("Command is disposed. Cannot execute.");
+      expect(consoleLogSpy).toHaveBeenCalledWith('Command is disposed. Cannot execute.');
       consoleLogSpy.mockRestore();
     });
-    
-    it("should not emit further values on isExecuting$, executeError$ after disposal", () => {
+
+    it('should not emit further values on isExecuting$, executeError$ after disposal', () => {
       const isExecutingNextSpy = vi.fn();
       const executeErrorNextSpy = vi.fn();
-            
+
       commandWithDefaultCanExecute.isExecuting$.subscribe({ next: isExecutingNextSpy });
       commandWithDefaultCanExecute.executeError$.subscribe({ next: executeErrorNextSpy });
-      
+
       // Dispose after subscription but before clearing, to capture any immediate post-subscription emissions
-      commandWithDefaultCanExecute.dispose(); 
+      commandWithDefaultCanExecute.dispose();
 
       // Clear spies to only check for emissions *after* dispose that might be wrongfully triggered
       isExecutingNextSpy.mockClear();
@@ -244,18 +233,17 @@ describe("Command", () => {
         (commandWithDefaultCanExecute as any)._isExecuting$.next(true);
       }
       if (!(commandWithDefaultCanExecute as any)._executeError$.closed) {
-        (commandWithDefaultCanExecute as any)._executeError$.next(new Error("test error"));
+        (commandWithDefaultCanExecute as any)._executeError$.next(new Error('test error'));
       }
 
       expect(isExecutingNextSpy).not.toHaveBeenCalled();
       expect(executeErrorNextSpy).not.toHaveBeenCalled();
     });
 
-
-    it("canExecute$ from disposed command with external source should not emit if external source changes", () => {
+    it('canExecute$ from disposed command with external source should not emit if external source changes', () => {
       const canExecuteNextSpy = vi.fn();
       commandWithExternalCanExecute.canExecute$.subscribe({ next: canExecuteNextSpy });
-      
+
       commandWithExternalCanExecute.dispose();
       canExecuteNextSpy.mockClear(); // Clear emissions up to and including completion emission
 

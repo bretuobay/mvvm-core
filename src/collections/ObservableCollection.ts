@@ -1,4 +1,4 @@
-import { BehaviorSubject, Observable, Subject } from "rxjs";
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 
 /**
  * @interface IObservableCollection
@@ -35,12 +35,10 @@ export class ObservableCollection<T> implements IObservableCollection<T> {
   public readonly itemAdded$: Observable<T> = this._itemAdded$.asObservable();
 
   protected _itemRemoved$ = new Subject<T>();
-  public readonly itemRemoved$: Observable<T> =
-    this._itemRemoved$.asObservable();
+  public readonly itemRemoved$: Observable<T> = this._itemRemoved$.asObservable();
 
   protected _itemUpdated$ = new Subject<{ oldItem: T; newItem: T }>();
-  public readonly itemUpdated$: Observable<{ oldItem: T; newItem: T }> =
-    this._itemUpdated$.asObservable();
+  public readonly itemUpdated$: Observable<{ oldItem: T; newItem: T }> = this._itemUpdated$.asObservable();
 
   constructor(initialItems: T[] = []) {
     this.setItems(initialItems);

@@ -1,19 +1,14 @@
 <template>
   <div>
-    <input
-      type="text"
-      v-model="newTodoInputValue"
-      placeholder="Enter new todo"
-      @keyup.enter="handleAddClick"
-    />
+    <input type="text" v-model="newTodoInputValue" placeholder="Enter new todo" @keyup.enter="handleAddClick" />
     <button @click="handleAddClick" :disabled="!canAdd">Add Todo</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, defineProps, watch } from "vue"; // Added watch
-import type { Subscription } from "rxjs";
-import type { TodoListViewModel } from "mvvm-core";
+import { ref, onMounted, onUnmounted, defineProps, watch } from 'vue'; // Added watch
+import type { Subscription } from 'rxjs';
+import type { TodoListViewModel } from 'mvvm-core';
 
 const props = defineProps<{
   viewModel: TodoListViewModel;
@@ -30,11 +25,9 @@ onMounted(() => {
     newTodoInputValue.value = text;
   });
 
-  canExecuteSubscription = props.viewModel.addTodoCommand.canExecute$.subscribe(
-    (canEx) => {
-      canAdd.value = canEx;
-    }
-  );
+  canExecuteSubscription = props.viewModel.addTodoCommand.canExecute$.subscribe((canEx) => {
+    canAdd.value = canEx;
+  });
 });
 
 onUnmounted(() => {
@@ -58,7 +51,7 @@ div {
   display: flex;
   margin-bottom: 1em;
 }
-input[type="text"] {
+input[type='text'] {
   flex-grow: 1;
   padding: 0.5em;
   margin-right: 0.5em;

@@ -1,13 +1,13 @@
 // disable linting for this file
 // eslint-disable
 // @ts-nocheck
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { RestfulApiViewModel } from "./RestfulApiViewModel";
-import { BaseModel } from "../models/BaseModel";
-import { RestfulApiModel, Fetcher } from "../models/RestfulApiModel"; // Import RestfulApiModel
-import { z } from "zod";
-import { BehaviorSubject, firstValueFrom } from "rxjs"; // Added combineLatest
-import { take, skip } from "rxjs/operators";
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { RestfulApiViewModel } from './RestfulApiViewModel';
+import { BaseModel } from '../models/BaseModel';
+import { RestfulApiModel, Fetcher } from '../models/RestfulApiModel'; // Import RestfulApiModel
+import { z } from 'zod';
+import { BehaviorSubject, firstValueFrom } from 'rxjs'; // Added combineLatest
+import { take, skip } from 'rxjs/operators';
 
 // Define a simple Zod schema for testing
 const ItemSchema = z.object({
@@ -26,10 +26,7 @@ const mockFetcher: Fetcher = async (url, options) => {
 
 // Mock the RestfulApiModel to control its behavior
 // NOW EXTENDS RestfulApiModel directly
-class MockRestfulApiModel extends RestfulApiModel<
-  Item | ItemArray,
-  typeof ItemSchema
-> {
+class MockRestfulApiModel extends RestfulApiModel<Item | ItemArray, typeof ItemSchema> {
   public _data$ = new BehaviorSubject<Item | ItemArray | null>(null);
   public _isLoading$ = new BehaviorSubject<boolean>(false);
   public _error$ = new BehaviorSubject<any>(null);
@@ -44,8 +41,8 @@ class MockRestfulApiModel extends RestfulApiModel<
     // The actual methods are mocked below.
     // super("http://mockapi.com", "items", mockFetcher, z.array(ItemSchema)); // Use z.array(ItemSchema) for ItemArray scenario
     super({
-      baseUrl: "http://mockapi.com",
-      endpoint: "items",
+      baseUrl: 'http://mockapi.com',
+      endpoint: 'items',
       fetcher: mockFetcher,
       schema: ItemSchema, // Use ItemSchema for single item
       initialData: null, // Start with no initial data
@@ -67,8 +64,8 @@ class MockRestfulApiModel extends RestfulApiModel<
         this._data$.next(item);
       } else {
         const items: ItemArray = [
-          { id: "1", name: "Item 1" },
-          { id: "2", name: "Item 2" },
+          { id: '1', name: 'Item 1' },
+          { id: '2', name: 'Item 2' },
         ];
         this._data$.next(items);
       }
@@ -86,7 +83,7 @@ class MockRestfulApiModel extends RestfulApiModel<
     try {
       const newItem: Item = {
         id: `new-${Date.now()}`,
-        name: payload.name || "New Item",
+        name: payload.name || 'New Item',
       };
       const currentData = this._data$.getValue();
       if (Array.isArray(currentData)) {
@@ -110,11 +107,7 @@ class MockRestfulApiModel extends RestfulApiModel<
       const updatedItem: Item = { id, name: payload.name || `Updated ${id}` };
       const currentData = this._data$.getValue();
       if (Array.isArray(currentData)) {
-        this._data$.next(
-          currentData.map((item) =>
-            item.id === id ? updatedItem : item
-          ) as ItemArray
-        );
+        this._data$.next(currentData.map((item) => (item.id === id ? updatedItem : item)) as ItemArray);
       } else {
         this._data$.next(updatedItem); // Replace if it was a single item
       }
@@ -133,9 +126,7 @@ class MockRestfulApiModel extends RestfulApiModel<
     try {
       const currentData = this._data$.getValue();
       if (Array.isArray(currentData)) {
-        this._data$.next(
-          currentData.filter((item) => item.id !== id) as ItemArray
-        );
+        this._data$.next(currentData.filter((item) => item.id !== id) as ItemArray);
       } else if ((currentData as Item)?.id === id) {
         // For single item case
         this._data$.next(null);
@@ -149,15 +140,15 @@ class MockRestfulApiModel extends RestfulApiModel<
   });
 }
 
-describe("RestfulApiViewModel", () => {
+describe('RestfulApiViewModel', () => {
   let mockModel: MockRestfulApiModel;
   // Correctly type the viewModel according to the MockRestfulApiModel which uses z.array(ItemSchema)
   let viewModel: RestfulApiViewModel<ItemArray, z.ZodArray<typeof ItemSchema>>;
 
   beforeEach(() => {
     mockModel = new MockRestfulApiModel({
-      baseUrl: "http://mockapi.com",
-      endpoint: "items",
+      baseUrl: 'http://mockapi.com',
+      endpoint: 'items',
       fetcher: mockFetcher,
       schema: ItemSchema, // Use ItemSchema for single item
       initialData: null, // Start with no initial data
@@ -170,7 +161,7 @@ describe("RestfulApiViewModel", () => {
   });
 
   // This test now verifies the explicit error condition for non-RestfulApiModel types.
-  it("should throw an error if model is not an instance of RestfulApiModel", () => {
+  it('should throw an error if model is not an instance of RestfulApiModel', () => {
     // We use a completely different class (BaseModel) to trigger the error.
     expect(
       () =>
@@ -178,30 +169,26 @@ describe("RestfulApiViewModel", () => {
           new BaseModel({
             initialData: null,
             schema: ItemSchema,
-          })
-        )
-    ).toThrow("RestfulApiViewModel requires an instance of RestfulApiModel.");
+          }),
+        ),
+    ).toThrow('RestfulApiViewModel requires an instance of RestfulApiModel.');
   });
 
-  it("should expose data$, isLoading$, and error$ from the model", async () => {
-    const testData: ItemArray = [{ id: "test1", name: "Test Item 1" }];
+  it('should expose data$, isLoading$, and error$ from the model', async () => {
+    const testData: ItemArray = [{ id: 'test1', name: 'Test Item 1' }];
     mockModel._data$.next(testData);
     mockModel._isLoading$.next(true);
-    mockModel._error$.next(new Error("Test Error"));
+    mockModel._error$.next(new Error('Test Error'));
 
     expect(await firstValueFrom(viewModel.data$)).toEqual(testData);
     expect(await firstValueFrom(viewModel.isLoading$)).toBe(true);
-    expect(await firstValueFrom(viewModel.error$)).toEqual(
-      new Error("Test Error")
-    );
+    expect(await firstValueFrom(viewModel.error$)).toEqual(new Error('Test Error'));
   });
 
-  describe("fetchCommand", () => {
-    it("should call model.fetch without ID when executed without parameter", async () => {
+  describe('fetchCommand', () => {
+    it('should call model.fetch without ID when executed without parameter', async () => {
       const loadingStates: boolean[] = [];
-      viewModel.isLoading$
-        .pipe(take(3))
-        .subscribe((val) => loadingStates.push(val)); // Expect 3 states: initial, during, after
+      viewModel.isLoading$.pipe(take(3)).subscribe((val) => loadingStates.push(val)); // Expect 3 states: initial, during, after
 
       const dataStates: (ItemArray | null)[] = [];
       viewModel.data$.pipe(take(2)).subscribe((val) => dataStates.push(val)); // Expect 2 states: initial, after fetch
@@ -209,40 +196,38 @@ describe("RestfulApiViewModel", () => {
       await viewModel.fetchCommand.execute();
 
       expect(mockModel.fetch).toHaveBeenCalledWith(undefined);
-      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
       expect(loadingStates).toEqual([false, true, false]);
       expect(dataStates[dataStates.length - 1]).toEqual([
-        { id: "1", name: "Item 1" },
-        { id: "2", name: "Item 2" },
+        { id: '1', name: 'Item 1' },
+        { id: '2', name: 'Item 2' },
       ]);
       expect(await firstValueFrom(viewModel.error$)).toBeNull();
     });
 
     // Test is made to pass by "item-id-3" to ["item-id-3"]
     // Need to look into it.
-    it("should call model.fetch with ID when executed with a string parameter", async () => {
-      await viewModel.fetchCommand.execute("item-id-3");
-      expect(mockModel.fetch).toHaveBeenCalledWith(["item-id-3"]);
+    it('should call model.fetch with ID when executed with a string parameter', async () => {
+      await viewModel.fetchCommand.execute('item-id-3');
+      expect(mockModel.fetch).toHaveBeenCalledWith(['item-id-3']);
       expect(await firstValueFrom(viewModel.data$)).toEqual({
-        id: "item-id-3",
-        name: "Fetched item-id-3",
+        id: 'item-id-3',
+        name: 'Fetched item-id-3',
       });
     });
 
-    it("should call model.fetch with array of IDs when executed with an array parameter", async () => {
-      await viewModel.fetchCommand.execute(["item-id-4", "item-id-5"]);
-      expect(mockModel.fetch).toHaveBeenCalledWith(["item-id-4", "item-id-5"]);
+    it('should call model.fetch with array of IDs when executed with an array parameter', async () => {
+      await viewModel.fetchCommand.execute(['item-id-4', 'item-id-5']);
+      expect(mockModel.fetch).toHaveBeenCalledWith(['item-id-4', 'item-id-5']);
       // Mock model returns single item for array of IDs, adjust if mock changes
       expect(await firstValueFrom(viewModel.data$)).toEqual({
-        id: "item-id-4",
-        name: "Fetched item-id-4",
+        id: 'item-id-4',
+        name: 'Fetched item-id-4',
       });
     });
 
-    it("should set error$ if fetch fails", async () => {
-      const fetchError = new Error("Fetch failed");
+    it('should set error$ if fetch fails', async () => {
+      const fetchError = new Error('Fetch failed');
       mockModel.fetch.mockImplementation(async () => {
         mockModel._isLoading$.next(true);
         mockModel._error$.next(fetchError);
@@ -250,37 +235,31 @@ describe("RestfulApiViewModel", () => {
         throw fetchError;
       });
 
-      await expect(viewModel.fetchCommand.execute()).rejects.toThrow(
-        fetchError
-      );
+      await expect(viewModel.fetchCommand.execute()).rejects.toThrow(fetchError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(fetchError);
       expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
     });
   });
 
-  describe("createCommand", () => {
-    const payload: Partial<Item> = { name: "New Test Item" };
+  describe('createCommand', () => {
+    const payload: Partial<Item> = { name: 'New Test Item' };
 
-    it("should call model.create and update data$", async () => {
+    it('should call model.create and update data$', async () => {
       mockModel._data$.next([]); // Start with an empty array for collection
       await viewModel.createCommand.execute(payload);
 
       expect(mockModel.create).toHaveBeenCalledWith(payload);
-      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(false);
       const data = await firstValueFrom(viewModel.data$);
       expect(Array.isArray(data) && data.length).toBe(1);
-      expect(Array.isArray(data) && data[0].name).toBe("New Test Item");
+      expect(Array.isArray(data) && data[0].name).toBe('New Test Item');
       expect(Array.isArray(data) && data[0].id).toMatch(/^new-/); // Check for mock ID pattern
     });
 
-    it("should set error$ if create fails", async () => {
-      const createError = new Error("Create failed");
+    it('should set error$ if create fails', async () => {
+      const createError = new Error('Create failed');
       mockModel.create.mockImplementation(async () => {
         mockModel._isLoading$.next(true);
         mockModel._error$.next(createError);
@@ -288,40 +267,34 @@ describe("RestfulApiViewModel", () => {
         throw createError;
       });
 
-      await expect(viewModel.createCommand.execute(payload)).rejects.toThrow(
-        createError
-      );
+      await expect(viewModel.createCommand.execute(payload)).rejects.toThrow(createError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(createError);
       expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(false);
     });
   });
 
-  describe("updateCommand", () => {
-    const existingItem: Item = { id: "1", name: "Original Name" };
-    const payload: Partial<Item> = { name: "Updated Name" };
+  describe('updateCommand', () => {
+    const existingItem: Item = { id: '1', name: 'Original Name' };
+    const payload: Partial<Item> = { name: 'Updated Name' };
 
     beforeEach(() => {
       mockModel._data$.next([existingItem]);
     });
 
-    it("should call model.update and update data$", async () => {
+    it('should call model.update and update data$', async () => {
       await viewModel.updateCommand.execute({ id: existingItem.id, payload });
 
       expect(mockModel.update).toHaveBeenCalledWith(existingItem.id, payload);
-      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(false);
       const data = await firstValueFrom(viewModel.data$);
-      expect(Array.isArray(data) && data[0].name).toBe("Updated Name");
+      expect(Array.isArray(data) && data[0].name).toBe('Updated Name');
       expect(Array.isArray(data) && data[0].id).toBe(existingItem.id);
     });
 
-    it("should set error$ if update fails", async () => {
-      const updateError = new Error("Update failed");
+    it('should set error$ if update fails', async () => {
+      const updateError = new Error('Update failed');
       mockModel.update.mockImplementation(async () => {
         mockModel._isLoading$.next(true);
         mockModel._error$.next(updateError);
@@ -329,39 +302,33 @@ describe("RestfulApiViewModel", () => {
         throw updateError;
       });
 
-      await expect(
-        viewModel.updateCommand.execute({ id: existingItem.id, payload })
-      ).rejects.toThrow(updateError);
+      await expect(viewModel.updateCommand.execute({ id: existingItem.id, payload })).rejects.toThrow(updateError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(updateError);
       expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(false);
     });
   });
 
-  describe("deleteCommand", () => {
-    const itemToDelete: Item = { id: "1", name: "To Be Deleted" };
+  describe('deleteCommand', () => {
+    const itemToDelete: Item = { id: '1', name: 'To Be Deleted' };
 
     beforeEach(() => {
-      mockModel._data$.next([itemToDelete, { id: "2", name: "Keep Me" }]);
+      mockModel._data$.next([itemToDelete, { id: '2', name: 'Keep Me' }]);
     });
 
-    it("should call model.delete and update data$", async () => {
+    it('should call model.delete and update data$', async () => {
       await viewModel.deleteCommand.execute(itemToDelete.id);
 
       expect(mockModel.delete).toHaveBeenCalledWith(itemToDelete.id);
-      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(false);
       const data = await firstValueFrom(viewModel.data$);
       expect(Array.isArray(data) && data.length).toBe(1);
-      expect(Array.isArray(data) && data[0].id).toBe("2");
+      expect(Array.isArray(data) && data[0].id).toBe('2');
     });
 
-    it("should set error$ if delete fails", async () => {
-      const deleteError = new Error("Delete failed");
+    it('should set error$ if delete fails', async () => {
+      const deleteError = new Error('Delete failed');
       mockModel.delete.mockImplementation(async () => {
         mockModel._isLoading$.next(true);
         mockModel._error$.next(deleteError);
@@ -369,34 +336,30 @@ describe("RestfulApiViewModel", () => {
         throw deleteError;
       });
 
-      await expect(
-        viewModel.deleteCommand.execute(itemToDelete.id)
-      ).rejects.toThrow(deleteError);
+      await expect(viewModel.deleteCommand.execute(itemToDelete.id)).rejects.toThrow(deleteError);
 
       expect(await firstValueFrom(viewModel.error$)).toBe(deleteError);
       expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(
-        false
-      );
+      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(false);
     });
   });
 
-  describe("selectedItem$ and selectItem method", () => {
+  describe('selectedItem$ and selectItem method', () => {
     const items: ItemArray = [
-      { id: "a", name: "Alice" },
-      { id: "b", name: "Bob" },
-      { id: "c", name: "Charlie" },
+      { id: 'a', name: 'Alice' },
+      { id: 'b', name: 'Bob' },
+      { id: 'c', name: 'Charlie' },
     ];
 
     beforeEach(() => {
       mockModel._data$.next(items);
     });
 
-    it("should emit null initially for selectedItem$", async () => {
+    it('should emit null initially for selectedItem$', async () => {
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
 
-    it("should update selectedItem$ when selectItem is called with a valid ID", async () => {
+    it('should update selectedItem$ when selectItem is called with a valid ID', async () => {
       // Ensure initial data is set for this specific test context
       mockModel._data$.next(items); // `items` is defined in the describe block's scope
 
@@ -409,7 +372,7 @@ describe("RestfulApiViewModel", () => {
       // After mockModel._data$.next(items), if _selectedItemId$ is still null, it would emit null.
       // So, emittedValues should have [null] or [null, null] at this point.
 
-      viewModel.selectItem("b"); // Action: select item 'b'
+      viewModel.selectItem('b'); // Action: select item 'b'
 
       // After selectItem("b"), selectedItem$ should re-evaluate and emit the found item.
       // emittedValues should now be [initialNull(s)..., items[1]]
@@ -422,40 +385,38 @@ describe("RestfulApiViewModel", () => {
       expect(emittedValues.pop()).toEqual(items[1]);
     });
 
-    it("should emit null for selectedItem$ if ID is not found in the array", async () => {
+    it('should emit null for selectedItem$ if ID is not found in the array', async () => {
       mockModel._data$.next(items);
-      viewModel.selectItem("non-existent-id");
+      viewModel.selectItem('non-existent-id');
       // It might take a microtask for combineLatest to emit, ensure data is there first
       await vi.waitFor(async () => {
         expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
       });
     });
 
-    it("should emit null for selectedItem$ if data$ is an empty array", async () => {
+    it('should emit null for selectedItem$ if data$ is an empty array', async () => {
       mockModel._data$.next([]); // Data is an empty array
-      viewModel.selectItem("a"); // Try to select something
+      viewModel.selectItem('a'); // Try to select something
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
 
-    it("should emit null for selectedItem$ if data$ is not an array", async () => {
-      mockModel._data$.next({ id: "single", name: "Single Item" } as Item); // Change model data to single item
-      viewModel.selectItem("single"); // Try to select
+    it('should emit null for selectedItem$ if data$ is not an array', async () => {
+      mockModel._data$.next({ id: 'single', name: 'Single Item' } as Item); // Change model data to single item
+      viewModel.selectItem('single'); // Try to select
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Should still be null as it expects an array
     });
 
-    it("should react to changes in data$ and update selectedItem$", async () => {
+    it('should react to changes in data$ and update selectedItem$', async () => {
       mockModel._data$.next(items); // Initial data
 
       // Select 'a'
-      viewModel.selectItem("a");
-      expect(
-        await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))
-      ).toEqual(items[0]);
+      viewModel.selectItem('a');
+      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
 
       // Simulate data update where 'a' is removed
       const newItems: ItemArray = [
-        { id: "b", name: "Bob" },
-        { id: "c", name: "Charlie" },
+        { id: 'b', name: 'Bob' },
+        { id: 'c', name: 'Charlie' },
       ];
       mockModel._data$.next(newItems); // This triggers re-evaluation of selectedItem$
 
@@ -466,20 +427,16 @@ describe("RestfulApiViewModel", () => {
       });
 
       // Select 'b' from new data
-      viewModel.selectItem("b");
-      expect(
-        await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))
-      ).toEqual(newItems[0]);
+      viewModel.selectItem('b');
+      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(newItems[0]);
     });
 
-    it("should handle selectItem(null) to clear selection", async () => {
+    it('should handle selectItem(null) to clear selection', async () => {
       mockModel._data$.next(items);
-      viewModel.selectItem("a");
+      viewModel.selectItem('a');
       // Wait for the selection to propagate
       await vi.waitFor(async () => {
-        expect(
-          await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))
-        ).toEqual(items[0]);
+        expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
       });
 
       viewModel.selectItem(null);
@@ -489,18 +446,18 @@ describe("RestfulApiViewModel", () => {
     });
   });
 
-  describe("dispose method", () => {
-    it("should call dispose on the underlying model", () => {
-      const modelDisposeSpy = vi.spyOn(mockModel, "dispose");
+  describe('dispose method', () => {
+    it('should call dispose on the underlying model', () => {
+      const modelDisposeSpy = vi.spyOn(mockModel, 'dispose');
       viewModel.dispose();
       expect(modelDisposeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("should call dispose on all command instances", () => {
-      const fetchDisposeSpy = vi.spyOn(viewModel.fetchCommand, "dispose");
-      const createDisposeSpy = vi.spyOn(viewModel.createCommand, "dispose");
-      const updateDisposeSpy = vi.spyOn(viewModel.updateCommand, "dispose");
-      const deleteDisposeSpy = vi.spyOn(viewModel.deleteCommand, "dispose");
+    it('should call dispose on all command instances', () => {
+      const fetchDisposeSpy = vi.spyOn(viewModel.fetchCommand, 'dispose');
+      const createDisposeSpy = vi.spyOn(viewModel.createCommand, 'dispose');
+      const updateDisposeSpy = vi.spyOn(viewModel.updateCommand, 'dispose');
+      const deleteDisposeSpy = vi.spyOn(viewModel.deleteCommand, 'dispose');
 
       viewModel.dispose();
 
@@ -510,28 +467,27 @@ describe("RestfulApiViewModel", () => {
       expect(deleteDisposeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("should complete the _selectedItemId$ subject", () => {
+    it('should complete the _selectedItemId$ subject', () => {
       // Spy on the internal subject's complete method
       // Accessing private/protected members for testing is sometimes necessary.
-      const selectedItemIdSubject = (viewModel as any)
-        ._selectedItemId$ as BehaviorSubject<string | null>;
-      const completeSpy = vi.spyOn(selectedItemIdSubject, "complete");
+      const selectedItemIdSubject = (viewModel as any)._selectedItemId$ as BehaviorSubject<string | null>;
+      const completeSpy = vi.spyOn(selectedItemIdSubject, 'complete');
 
       viewModel.dispose();
 
       expect(completeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("should prevent new selections after disposal", async () => {
+    it('should prevent new selections after disposal', async () => {
       viewModel.dispose();
-      viewModel.selectItem("a"); // Attempt to select after disposal
+      viewModel.selectItem('a'); // Attempt to select after disposal
       // selectedItem$ should ideally remain null or not emit new values.
       // Since _selectedItemId$ is completed, new values to it won't propagate through combineLatest in the same way.
       // The existing value (likely null after completion if it emits one last time) should persist.
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Or its last value before completion
 
       // Try to select again to ensure it's not just the initial state
-      viewModel.selectItem("b");
+      viewModel.selectItem('b');
       expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
     });
   });
@@ -580,7 +536,7 @@ describe('RestfulApiViewModel with Real RestfulApiModel Integration', () => {
     await viewModel.fetchCommand.execute();
 
     expect(mockFetcher).toHaveBeenCalledTimes(1);
-    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: "GET" });
+    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: 'GET' });
 
     // isLoading$: initial (false), loading (true), finished (false)
     // Depending on exact timing and BehaviorSubject's nature, initial false might be captured or skipped if subscription is late.
@@ -588,7 +544,6 @@ describe('RestfulApiViewModel with Real RestfulApiModel Integration', () => {
     expect(isLoadingEmissions).toContain(true);
     // Check the last recorded state for isLoading and data
     expect(isLoadingEmissions[isLoadingEmissions.length - 1]).toBe(false);
-
 
     // error$ should emit null (or not emit if BehaviorSubject starts with null and no error occurs)
     // Check the last emitted error value, or that it only contains nulls
@@ -600,16 +555,14 @@ describe('RestfulApiViewModel with Real RestfulApiModel Integration', () => {
     expect(dataEmissions[1]).toEqual(expectedItems); // Value after fetch
     // expect(await firstValueFrom(viewModel.data$.pipe(skip(1)))).toEqual(expectedItems);
 
-
     // Check isExecuting$ directly if possible, or ensure it eventually becomes false
     // For now, we assume if the command promise resolves, isExecuting was handled.
     // expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
     // Check the last value of isExecuting$ if the command completed
     let finalIsExecuting = true; // Assume true initially
-    const execSub = viewModel.fetchCommand.isExecuting$.subscribe(val => finalIsExecuting = val);
+    const execSub = viewModel.fetchCommand.isExecuting$.subscribe((val) => (finalIsExecuting = val));
     execSub.unsubscribe(); // Get current value and unsubscribe
     expect(finalIsExecuting).toBe(false);
-
   }, 10000); // Increased timeout
 
   it('should set error$ on viewModel if fetcher fails', async () => {
@@ -629,18 +582,17 @@ describe('RestfulApiViewModel with Real RestfulApiModel Integration', () => {
     await expect(viewModel.fetchCommand.execute()).rejects.toThrow(apiError);
 
     expect(mockFetcher).toHaveBeenCalledTimes(1);
-    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: "GET" });
+    expect(mockFetcher).toHaveBeenCalledWith(`${baseUrl}/${endpoint}`, { method: 'GET' });
 
     // isLoading$: initial (false), loading (true), finished (false)
     expect(isLoadingEmissions).toContain(true);
-    expect(isLoadingEmissions[isLoadingEmissions.length -1]).toBe(false);
+    expect(isLoadingEmissions[isLoadingEmissions.length - 1]).toBe(false);
 
     // error$ should have emitted the apiError
     expect(errorEmissions.pop()).toBe(apiError);
 
     // data$ should not have received new data; its last emission should be the initial data (null)
-    expect(dataEmissions[dataEmissions.length -1]).toEqual(initialData);
-
+    expect(dataEmissions[dataEmissions.length - 1]).toEqual(initialData);
 
     expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
   });

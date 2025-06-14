@@ -1,5 +1,5 @@
-import { TodoListViewModel } from "mvvm-core";
-import React, { useState, useEffect } from "react";
+import { TodoListViewModel } from 'mvvm-core';
+import React, { useState, useEffect } from 'react';
 
 interface AddTodoFormProps {
   viewModel: TodoListViewModel;
@@ -14,10 +14,9 @@ export const AddTodoForm: React.FC<AddTodoFormProps> = ({ viewModel }) => {
       setInputText(text);
     });
 
-    const canExecuteSubscription =
-      viewModel.addTodoCommand.canExecute$.subscribe((canExec) => {
-        setCanAddTodo(canExec);
-      });
+    const canExecuteSubscription = viewModel.addTodoCommand.canExecute$.subscribe((canExec) => {
+      setCanAddTodo(canExec);
+    });
 
     // Initialize canAddTodo with the current value from the BehaviorSubject
     // This is important because the BehaviorSubject emits its current value on subscription.
@@ -44,7 +43,7 @@ export const AddTodoForm: React.FC<AddTodoFormProps> = ({ viewModel }) => {
         value={inputText}
         onChange={handleInputChange}
         placeholder="Enter new todo"
-        style={{ marginRight: "10px", padding: "0.5rem", width: "75%" }}
+        style={{ marginRight: '10px', padding: '0.5rem', width: '75%' }}
       />
       <button onClick={handleAddClick} disabled={!canAddTodo}>
         Add Todo

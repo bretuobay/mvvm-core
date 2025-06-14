@@ -1,22 +1,15 @@
-import { RestfulApiViewModel } from "../../viewmodels/RestfulApiViewModel"; // Adjusted path
-import { RestfulTodoListModel } from "../models/RestfulTodoModel"; // Adjusted path
-import {
-  RestfulTodoData,
-  RestfulTodoListData,
-  RestfulTodoListSchema,
-} from "../models/RestfulTodoSchema"; // Adjusted path
-import { Command } from "../../commands/Command"; // Adjusted path
-import { Observable } from "rxjs";
+import { RestfulApiViewModel } from '../../viewmodels/RestfulApiViewModel'; // Adjusted path
+import { RestfulTodoListModel } from '../models/RestfulTodoModel'; // Adjusted path
+import { RestfulTodoData, RestfulTodoListData, RestfulTodoListSchema } from '../models/RestfulTodoSchema'; // Adjusted path
+import { Command } from '../../commands/Command'; // Adjusted path
+import { Observable } from 'rxjs';
 
 /**
  * @class RestfulTodoViewModel
  * Extends RestfulApiViewModel to manage a list of Todo items from a REST API.
  * It uses RestfulTodoListModel for data operations.
  */
-export class RestfulTodoViewModel extends RestfulApiViewModel<
-  RestfulTodoListData,
-  typeof RestfulTodoListSchema
-> {
+export class RestfulTodoViewModel extends RestfulApiViewModel<RestfulTodoListData, typeof RestfulTodoListSchema> {
   // Expose the list of todos directly. TData is RestfulTodoListData (RestfulTodoData[])
   public readonly todos$: Observable<RestfulTodoData[] | null>;
 
@@ -26,7 +19,7 @@ export class RestfulTodoViewModel extends RestfulApiViewModel<
   // We need a custom command or adapt the createCommand if possible.
   // For now, let's define a specific add command.
   public readonly addTodoCommand: Command<
-    Partial<Omit<RestfulTodoData, "id" | "createdAt" | "updatedAt">>,
+    Partial<Omit<RestfulTodoData, 'id' | 'createdAt' | 'updatedAt'>>,
     Promise<RestfulTodoData | undefined>
   >;
 
@@ -56,11 +49,7 @@ export class RestfulTodoViewModel extends RestfulApiViewModel<
 
     // Custom command for adding a new todo item
     this.addTodoCommand = new Command(
-      async (
-        newTodoData: Partial<
-          Omit<RestfulTodoData, "id" | "createdAt" | "updatedAt">
-        >
-      ) => {
+      async (newTodoData: Partial<Omit<RestfulTodoData, 'id' | 'createdAt' | 'updatedAt'>>) => {
         // The model's `create` method expects Partial<TData>, where TData is RestfulTodoListData (an array).
         // This is not correct for creating a single new item to be added to the list.
         // The `RestfulApiModel.create` method is designed to POST to the base endpoint (`this.getUrl()`)
@@ -68,32 +57,22 @@ export class RestfulTodoViewModel extends RestfulApiViewModel<
         // So, the payload to `model.create` should be the new single Todo item.
         return this.model.create(
           // @ts-ignore
-          newTodoData as Partial<RestfulTodoData | any>
+          newTodoData as Partial<RestfulTodoData | any>,
         ) as Promise<RestfulTodoData | any>;
       },
       // Can-execute observable (e.g., based on form validity if there was one)
-      new Observable<boolean>((subscriber) => subscriber.next(true)) // Always executable for now
+      new Observable<boolean>((subscriber) => subscriber.next(true)), // Always executable for now
     );
 
     // Command for updating a specific todo item
     // The base class `updateCommand` might be sufficient if RestfulApiModel's update
     // correctly handles items in a collection.
     // `this.model.update(id, payload)` where payload is `Partial<RestfulTodoData>`
-    this.updateTodoCommand = new Command(
-      async ({
-        id,
-        payload,
-      }: {
-        id: string;
-        payload: Partial<RestfulTodoData>;
-      }) => {
-        // The payload for model.update should be Partial<ExtractItemType<TData>>
-        // which is Partial<RestfulTodoData>. This is correct.
-        return this.model.update(id, payload as any) as Promise<
-          RestfulTodoData | any
-        >;
-      }
-    );
+    this.updateTodoCommand = new Command(async ({ id, payload }: { id: string; payload: Partial<RestfulTodoData> }) => {
+      // The payload for model.update should be Partial<ExtractItemType<TData>>
+      // which is Partial<RestfulTodoData>. This is correct.
+      return this.model.update(id, payload as any) as Promise<RestfulTodoData | any>;
+    });
   }
 
   // Expose a method to easily toggle completion, assuming the API supports PATCH or PUT for partial updates.

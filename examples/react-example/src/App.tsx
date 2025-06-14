@@ -1,7 +1,7 @@
-import { AddTodoForm } from "./components/AddTodoForm";
-import { TodoList } from "./components/TodoList";
-import { TodoListViewModel } from "mvvm-core";
-import "./App.css";
+import { AddTodoForm } from './components/AddTodoForm';
+import { TodoList } from './components/TodoList';
+import { TodoListViewModel } from 'mvvm-core';
+import './App.css';
 
 const todoListViewModel = new TodoListViewModel();
 

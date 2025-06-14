@@ -4,8 +4,7 @@ import { RestfulTodoData, RestfulTodoSchema, RestfulTodoListSchema } from '../mo
 const generateId = (): string => `id_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
 // Helper for simulating network delay
-const simulateNetworkDelay = (delayMs: number = 500) =>
-  new Promise(resolve => setTimeout(resolve, delayMs));
+const simulateNetworkDelay = (delayMs: number = 500) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
 interface FakeApiResponse {
   ok: boolean;
@@ -20,11 +19,11 @@ export class FakeTodoApi {
   public readonly baseUrl = 'http://fakeapi.example.com'; // Base URL doesn't really matter for the fake fetcher
 
   constructor(initialTodos: RestfulTodoData[] = []) {
-    this.todos = initialTodos.map(todo => ({
-        ...todo,
-        id: todo.id || generateId(),
-        createdAt: todo.createdAt || new Date().toISOString(),
-        updatedAt: todo.updatedAt || new Date().toISOString(),
+    this.todos = initialTodos.map((todo) => ({
+      ...todo,
+      id: todo.id || generateId(),
+      createdAt: todo.createdAt || new Date().toISOString(),
+      updatedAt: todo.updatedAt || new Date().toISOString(),
     }));
   }
 
@@ -45,32 +44,38 @@ export class FakeTodoApi {
         const idsParam = urlParts.searchParams.get('ids');
         if (idsParam) {
           const ids = idsParam.split(',');
-          responseData = this.todos.filter(todo => ids.includes(todo.id));
+          responseData = this.todos.filter((todo) => ids.includes(todo.id));
         } else {
           responseData = [...this.todos];
         }
         // Validate response against schema - for internal consistency
         try {
-            RestfulTodoListSchema.parse(responseData);
+          RestfulTodoListSchema.parse(responseData);
         } catch (e) {
-            console.error("Fake API data error (GET list):", e);
-            status = 500; ok = false; responseData = { error: "Internal data validation failed" };
+          console.error('Fake API data error (GET list):', e);
+          status = 500;
+          ok = false;
+          responseData = { error: 'Internal data validation failed' };
         }
       }
       // GET /todos/:id
       else if (method === 'GET' && endpointParts.length === 1) {
         const id = endpointParts[0];
-        const todo = this.todos.find(t => t.id === id);
+        const todo = this.todos.find((t) => t.id === id);
         if (todo) {
           responseData = { ...todo };
           try {
             RestfulTodoSchema.parse(responseData);
           } catch (e) {
             console.error(`Fake API data error (GET single ${id}):`, e);
-            status = 500; ok = false; responseData = { error: "Internal data validation failed" };
+            status = 500;
+            ok = false;
+            responseData = { error: 'Internal data validation failed' };
           }
         } else {
-          status = 404; ok = false; responseData = { error: 'Todo not found' };
+          status = 404;
+          ok = false;
+          responseData = { error: 'Todo not found' };
         }
       }
       // POST /todos
@@ -91,13 +96,15 @@ export class FakeTodoApi {
           this.todos.push(newTodo);
           responseData = { ...newTodo };
         } catch (e: any) {
-            status = 400; ok = false; responseData = { error: 'Invalid todo data', details: e.errors };
+          status = 400;
+          ok = false;
+          responseData = { error: 'Invalid todo data', details: e.errors };
         }
       }
       // PUT /todos/:id
       else if (method === 'PUT' && endpointParts.length === 1) {
         const id = endpointParts[0];
-        const index = this.todos.findIndex(t => t.id === id);
+        const index = this.todos.findIndex((t) => t.id === id);
         if (index !== -1) {
           try {
             // Validate payload - all fields of RestfulTodoData except id, createdAt, updatedAt
@@ -111,27 +118,35 @@ export class FakeTodoApi {
             };
             responseData = { ...this.todos[index] };
           } catch (e: any) {
-            status = 400; ok = false; responseData = { error: 'Invalid update payload', details: e.errors };
+            status = 400;
+            ok = false;
+            responseData = { error: 'Invalid update payload', details: e.errors };
           }
         } else {
-          status = 404; ok = false; responseData = { error: 'Todo not found for update' };
+          status = 404;
+          ok = false;
+          responseData = { error: 'Todo not found for update' };
         }
       }
       // DELETE /todos/:id
       else if (method === 'DELETE' && endpointParts.length === 1) {
         const id = endpointParts[0];
-        const index = this.todos.findIndex(t => t.id === id);
+        const index = this.todos.findIndex((t) => t.id === id);
         if (index !== -1) {
           this.todos.splice(index, 1);
           status = 204; // No content
           responseData = null;
         } else {
-          status = 404; ok = false; responseData = { error: 'Todo not found for deletion' };
+          status = 404;
+          ok = false;
+          responseData = { error: 'Todo not found for deletion' };
         }
       }
       // Unhandled routes
       else {
-        status = 404; ok = false; responseData = { error: `Not Found: ${method} ${urlParts.pathname}` };
+        status = 404;
+        ok = false;
+        responseData = { error: `Not Found: ${method} ${urlParts.pathname}` };
       }
 
       const headers = new Headers();
@@ -144,7 +159,7 @@ export class FakeTodoApi {
         status,
         headers,
         json: async () => responseData,
-        text: async () => responseData !== null ? JSON.stringify(responseData) : "",
+        text: async () => (responseData !== null ? JSON.stringify(responseData) : ''),
       };
     };
   }

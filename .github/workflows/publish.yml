@@ -18,8 +18,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20" # Use a Node.js version compatible with your project
-          registry-url: "https://registry.npmjs.org" # Important for npm authentication
+          node-version: '20' # Use a Node.js version compatible with your project
+          registry-url: 'https://registry.npmjs.org' # Important for npm authentication
 
       - name: Install dependencies
         run: npm install

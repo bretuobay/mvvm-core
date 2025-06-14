@@ -1,5 +1,5 @@
-import { BehaviorSubject, Observable } from "rxjs";
-import { ZodSchema } from "zod";
+import { BehaviorSubject, Observable } from 'rxjs';
+import { ZodSchema } from 'zod';
 
 /**
  * @interface IDisposable
@@ -15,8 +15,7 @@ export interface IDisposable {
  * @template TData The type of data managed by the model.
  * @template TSchema The Zod schema type for validating the data.
  */
-export interface IBaseModel<TData, TSchema extends ZodSchema<TData>>
-  extends IDisposable {
+export interface IBaseModel<TData, TSchema extends ZodSchema<TData>> extends IDisposable {
   readonly data$: Observable<TData | null>;
   readonly isLoading$: Observable<boolean>;
   readonly error$: Observable<any>;
@@ -42,15 +41,12 @@ export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
  * @template TData The type of data managed by the model.
  * @template TSchema The Zod schema type for validating the data.
  */
-export class BaseModel<TData, TSchema extends ZodSchema<TData>>
-  implements IBaseModel<TData, TSchema>
-{
+export class BaseModel<TData, TSchema extends ZodSchema<TData>> implements IBaseModel<TData, TSchema> {
   protected _data$ = new BehaviorSubject<TData | null>(null);
   public readonly data$: Observable<TData | null> = this._data$.asObservable();
 
   protected _isLoading$ = new BehaviorSubject<boolean>(false);
-  public readonly isLoading$: Observable<boolean> =
-    this._isLoading$.asObservable();
+  public readonly isLoading$: Observable<boolean> = this._isLoading$.asObservable();
 
   protected _error$ = new BehaviorSubject<any>(null);
   public readonly error$: Observable<any> = this._error$.asObservable();
@@ -116,9 +112,7 @@ export class BaseModel<TData, TSchema extends ZodSchema<TData>>
    */
   public validate(data: any): TData {
     if (!this.schema) {
-      console.warn(
-        "No Zod schema provided for this BaseModel instance. Validation will not occur."
-      );
+      console.warn('No Zod schema provided for this BaseModel instance. Validation will not occur.');
       return data as TData; // Return data as is if no schema provided
     }
     return this.schema.parse(data);

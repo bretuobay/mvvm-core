@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { TodoListViewModel, TodoItem, TodoItemData } from "mvvm-core";
+import React, { useState, useEffect } from 'react';
+import { TodoListViewModel, TodoItem, TodoItemData } from 'mvvm-core';
 
 interface TodoListItemProps {
   todo: TodoItem;
   viewModel: TodoListViewModel;
 }
 
-export const TodoListItem: React.FC<TodoListItemProps> = ({
-  todo,
-  viewModel,
-}) => {
+export const TodoListItem: React.FC<TodoListItemProps> = ({ todo, viewModel }) => {
   const [itemData, setItemData] = useState<TodoItemData | null>(null);
 
   useEffect(() => {
@@ -35,24 +32,19 @@ export const TodoListItem: React.FC<TodoListItemProps> = ({
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        margin: "1em",
-        padding: "0.5em 0",
-        borderBottom: "1px solid #eee",
-        borderRadius: "4px",
+        display: 'flex',
+        alignItems: 'center',
+        margin: '1em',
+        padding: '0.5em 0',
+        borderBottom: '1px solid #eee',
+        borderRadius: '4px',
       }}
     >
-      <input
-        type="checkbox"
-        checked={itemData.isCompleted}
-        onChange={handleToggle}
-        style={{ marginRight: "10px" }}
-      />
+      <input type="checkbox" checked={itemData.isCompleted} onChange={handleToggle} style={{ marginRight: '10px' }} />
       <span
         style={{
-          textDecoration: itemData.isCompleted ? "line-through" : "none",
-          color: itemData.isCompleted ? "#aaa" : "#213547",
+          textDecoration: itemData.isCompleted ? 'line-through' : 'none',
+          color: itemData.isCompleted ? '#aaa' : '#213547',
         }}
       >
         {itemData.text}
