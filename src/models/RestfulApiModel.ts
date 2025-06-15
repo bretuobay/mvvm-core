@@ -1,12 +1,10 @@
-import { z, ZodSchema } from "zod";
-import { BaseModel } from "./BaseModel"; // Assuming IDisposable is also needed/exported
+import { z, ZodSchema } from 'zod';
+import { BaseModel } from './BaseModel'; // Assuming IDisposable is also needed/exported
 
 // Helper for temporary ID
-const tempIdPrefix = "temp_";
+const tempIdPrefix = 'temp_';
 function generateTempId(): string {
-  return `${tempIdPrefix}${Date.now()}_${Math.random()
-    .toString(36)
-    .substring(2, 9)}`;
+  return `${tempIdPrefix}${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 // Helper to manage item with ID
@@ -19,10 +17,7 @@ interface ItemWithId {
  * Defines a generic fetcher function type.
  * @template TResponse The expected type of the response data.
  */
-export type Fetcher = <TResponse = any>(
-  url: string,
-  options?: RequestInit
-) => Promise<TResponse>;
+export type Fetcher = <TResponse = any>(url: string, options?: RequestInit) => Promise<TResponse>;
 
 export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
   baseUrl: string | null;
@@ -41,10 +36,7 @@ export type TConstructorInput<TData, TSchema extends ZodSchema<TData>> = {
  * @template TData The type of data managed by the model (e.g., User, User[]).
  * @template TSchema The Zod schema type for validating the data.
  */
-export class RestfulApiModel<
-  TData,
-  TSchema extends ZodSchema<TData>
-> extends BaseModel<TData, TSchema> {
+export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends BaseModel<TData, TSchema> {
   private readonly baseUrl: string;
   private readonly endpoint: string;
   private readonly fetcher: Fetcher;
@@ -61,12 +53,10 @@ export class RestfulApiModel<
     const { baseUrl, endpoint, fetcher, schema, initialData, validateSchema } = input;
     super({ initialData, schema });
     if (!baseUrl || !endpoint || !fetcher) {
-      throw new Error(
-        "RestfulApiModel requires baseUrl, endpoint, and fetcher."
-      );
+      throw new Error('RestfulApiModel requires baseUrl, endpoint, and fetcher.');
     }
-    this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    this.endpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
+    this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    this.endpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     this.fetcher = fetcher;
     this._shouldValidateSchema = validateSchema === undefined ? true : validateSchema;
   }
@@ -88,7 +78,7 @@ export class RestfulApiModel<
   private async executeApiRequest(
     url: string,
     options: RequestInit = {},
-    expectedType: "single" | "collection" | "none" = "single"
+    expectedType: 'single' | 'collection' | 'none' = 'single',
   ): Promise<any> {
     this.setLoading(true);
     this.clearError();
@@ -100,9 +90,9 @@ export class RestfulApiModel<
       }
 
       // Attempt to parse JSON only if content-type suggests it
-      const contentType = response.headers?.get("content-type");
+      const contentType = response.headers?.get('content-type');
       let data: any = null;
-      if (contentType && contentType.includes("application/json")) {
+      if (contentType && contentType.includes('application/json')) {
         data = await (response as Response).json();
       } else if (response instanceof Response && response.status === 204) {
         // No content for 204
@@ -115,17 +105,18 @@ export class RestfulApiModel<
         data = response;
       }
 
-      if (this._shouldValidateSchema && this.schema && expectedType !== "none") {
+      if (this._shouldValidateSchema && this.schema && expectedType !== 'none') {
         // If the model's schema (this.schema) is already an array type (e.g. z.array(ItemSchema))
         // and we expect a collection, then we use this.schema directly.
         // Otherwise, if we expect a collection and this.schema is for a single item, we wrap it.
-        if (expectedType === "collection") {
+        if (expectedType === 'collection') {
           if (this.schema instanceof z.ZodArray) {
             return this.schema.parse(data);
           } else {
             return z.array(this.schema).parse(data);
           }
-        } else { // expectedType === "single"
+        } else {
+          // expectedType === "single"
           // If this.schema is an array type (e.g. z.array(ItemSchema)) but a single item is expected,
           // we should parse using the element type of the array.
           if (this.schema instanceof z.ZodArray) {
@@ -164,24 +155,20 @@ export class RestfulApiModel<
    */
   public async fetch(id?: string | string[]): Promise<void> {
     let url = this.getUrl();
-    let expectedType: "single" | "collection" = "collection";
+    let expectedType: 'single' | 'collection' = 'collection';
 
     if (id) {
       if (Array.isArray(id)) {
-        url = `${this.getUrl()}?ids=${id.join(",")}`; // Example for fetching multiple by ID
-        expectedType = "collection";
+        url = `${this.getUrl()}?ids=${id.join(',')}`; // Example for fetching multiple by ID
+        expectedType = 'collection';
       } else {
         url = this.getUrl(id);
-        expectedType = "single";
+        expectedType = 'single';
       }
     }
 
     try {
-      const fetchedData = await this.executeApiRequest(
-        url,
-        { method: "GET" },
-        expectedType
-      );
+      const fetchedData = await this.executeApiRequest(url, { method: 'GET' }, expectedType);
       this.setData(fetchedData);
     } catch (error) {
       // Error already set by executeApiRequest
@@ -245,11 +232,11 @@ export class RestfulApiModel<
       const createdItem = (await this.executeApiRequest(
         this.getUrl(),
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload), // Send original payload without tempId
         },
-        "single"
+        'single',
       )) as TData; // Assuming TData is the type of a single item
 
       // Success: Update data with server response
@@ -260,14 +247,14 @@ export class RestfulApiModel<
             (tempItemId && item.id === tempItemId) || item === tempItem // Reference check if no tempId was used
               ? createdItem
               : // Fallback: if payload had an ID, and server confirms it (or changes it)
-              // This part is tricky if server can change ID that client sent in payload.
-              // For now, tempId match is primary for arrays.
-              (payload as unknown as ItemWithId).id &&
-                item.id === (payload as unknown as ItemWithId).id &&
-                tempItemId === null
-              ? createdItem
-              : item
-          ) as TData
+                // This part is tricky if server can change ID that client sent in payload.
+                // For now, tempId match is primary for arrays.
+                (payload as unknown as ItemWithId).id &&
+                  item.id === (payload as unknown as ItemWithId).id &&
+                  tempItemId === null
+                ? createdItem
+                : item,
+          ) as TData,
         );
       } else {
         // For single item, or if array was cleared and set to single due to other ops
@@ -304,37 +291,26 @@ export class RestfulApiModel<
    * @returns A promise that resolves with the updated item (from the server response) if successful.
    *          Throws an error if the API request fails (after reverting optimistic changes) or if the item to update is not found.
    */
-  public async update(
-    id: string,
-    payload: Partial<TData>
-  ): Promise<TData | undefined> {
+  public async update(id: string, payload: Partial<TData>): Promise<TData | undefined> {
     const originalData = this._data$.getValue();
     let itemToUpdateOriginal: TData | undefined;
     let optimisticData: TData | null = null;
 
     if (Array.isArray(originalData)) {
-      itemToUpdateOriginal = originalData.find(
-        (item: any) => item.id === id
-      ) as TData | undefined;
+      itemToUpdateOriginal = originalData.find((item: any) => item.id === id) as TData | undefined;
       if (!itemToUpdateOriginal) {
         // Item not found, perhaps throw an error or handle as per requirements
         console.error(`Item with id ${id} not found for update.`);
         throw new Error(`Item with id ${id} not found for update.`);
       }
       const optimisticallyUpdatedItem = { ...itemToUpdateOriginal, ...payload };
-      optimisticData = originalData.map((item: any) =>
-        item.id === id ? optimisticallyUpdatedItem : item
-      ) as TData;
+      optimisticData = originalData.map((item: any) => (item.id === id ? optimisticallyUpdatedItem : item)) as TData;
     } else if (originalData && (originalData as any).id === id) {
       itemToUpdateOriginal = originalData;
       optimisticData = { ...originalData, ...payload } as TData;
     } else {
-      console.error(
-        `Item with id ${id} not found for update in single data mode.`
-      );
-      throw new Error(
-        `Item with id ${id} not found for update in single data mode.`
-      );
+      console.error(`Item with id ${id} not found for update in single data mode.`);
+      throw new Error(`Item with id ${id} not found for update in single data mode.`);
     }
 
     if (itemToUpdateOriginal === undefined) {
@@ -349,11 +325,11 @@ export class RestfulApiModel<
       const updatedItemFromServer = (await this.executeApiRequest(
         this.getUrl(id),
         {
-          method: "PUT", // Or 'PATCH'
-          headers: { "Content-Type": "application/json" },
+          method: 'PUT', // Or 'PATCH'
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload), // Send only the payload
         },
-        "single"
+        'single',
       )) as TData;
 
       // Success: Update data with server response (if different from optimistic)
@@ -361,30 +337,17 @@ export class RestfulApiModel<
       const currentDataAfterRequest = this._data$.getValue();
       if (Array.isArray(currentDataAfterRequest)) {
         this.setData(
-          currentDataAfterRequest.map((item: any) =>
-            item.id === id ? updatedItemFromServer : item
-          ) as TData
+          currentDataAfterRequest.map((item: any) => (item.id === id ? updatedItemFromServer : item)) as TData,
         );
-      } else if (
-        currentDataAfterRequest &&
-        (currentDataAfterRequest as any).id === id
-      ) {
+      } else if (currentDataAfterRequest && (currentDataAfterRequest as any).id === id) {
         this.setData(updatedItemFromServer);
       }
       return updatedItemFromServer;
     } catch (error) {
       // Failure: Revert to original data state before optimistic update
       if (Array.isArray(originalData) && itemToUpdateOriginal) {
-        this.setData(
-          originalData.map((item: any) =>
-            item.id === id ? itemToUpdateOriginal : item
-          ) as TData
-        );
-      } else if (
-        originalData &&
-        (originalData as any).id === id &&
-        itemToUpdateOriginal
-      ) {
+        this.setData(originalData.map((item: any) => (item.id === id ? itemToUpdateOriginal : item)) as TData);
+      } else if (originalData && (originalData as any).id === id && itemToUpdateOriginal) {
         this.setData(itemToUpdateOriginal);
       } else {
         // Fallback to full original data if specific item cannot be restored
@@ -417,9 +380,7 @@ export class RestfulApiModel<
     let itemWasDeleted = false;
 
     if (Array.isArray(originalData)) {
-      const dataAfterOptimisticDelete = originalData.filter(
-        (item: any) => item.id !== id
-      );
+      const dataAfterOptimisticDelete = originalData.filter((item: any) => item.id !== id);
       if (dataAfterOptimisticDelete.length < originalData.length) {
         this.setData(dataAfterOptimisticDelete as TData);
         itemWasDeleted = true;
@@ -437,11 +398,7 @@ export class RestfulApiModel<
     }
 
     try {
-      await this.executeApiRequest(
-        this.getUrl(id),
-        { method: "DELETE" },
-        "none"
-      );
+      await this.executeApiRequest(this.getUrl(id), { method: 'DELETE' }, 'none');
       // Success: Optimistic update is already the final state.
     } catch (error) {
       // Failure: Revert to original data
@@ -473,8 +430,7 @@ export class RestfulApiModel<
 // and RestfulApiModel is intended to be disposable in the same way.
 // This depends on whether BaseModel itself implements IDisposable.
 // From previous context, BaseModel does implement IDisposable.
-export interface IRestfulApiModel<TData, TSchema extends ZodSchema<TData>>
-  extends BaseModel<TData, TSchema> {
+export interface IRestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends BaseModel<TData, TSchema> {
   // This implies it also extends IDisposable
   // Define any additional public methods specific to RestfulApiModel if needed for the interface
   fetch(id?: string | string[]): Promise<void>;

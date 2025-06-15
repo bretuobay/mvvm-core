@@ -59,14 +59,14 @@ export interface ViewModelFactoryConfig<TData, TSchema extends ZodSchema<TData>>
  * ```
  */
 export function createReactiveViewModel<TData, TSchema extends ZodSchema<TData>>(
-  factoryConfig: ViewModelFactoryConfig<TData, TSchema>
+  factoryConfig: ViewModelFactoryConfig<TData, TSchema>,
 ): RestfulApiViewModel<TData, TSchema> {
   const { modelConfig, schema } = factoryConfig;
 
   // Create the RestfulApiModel instance
   const model = new RestfulApiModel<TData, TSchema>({
     ...modelConfig, // Spread all properties from modelConfig
-    schema: schema,  // Explicitly pass the schema
+    schema: schema, // Explicitly pass the schema
   });
 
   // Create the RestfulApiViewModel instance with the model

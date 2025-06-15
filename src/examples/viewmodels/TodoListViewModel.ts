@@ -1,10 +1,10 @@
-import { TodoItem } from "../models/TodoItem";
-import { BehaviorSubject, Observable } from "rxjs";
-import { map } from "rxjs/operators";
-import { ObservableCollection } from "../../collections/ObservableCollection";
-import { Command } from "../../commands/Command";
-import { BaseModel } from "../../models/BaseModel";
-import { BaseViewModel } from "../../viewmodels/BaseViewModel";
+import { TodoItem } from '../models/TodoItem';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { ObservableCollection } from '../../collections/ObservableCollection';
+import { Command } from '../../commands/Command';
+import { BaseModel } from '../../models/BaseModel';
+import { BaseViewModel } from '../../viewmodels/BaseViewModel';
 
 // Create a dummy BaseModel for the ViewModel since BaseViewModel expects one.
 class DummyModel extends BaseModel<null, any> {
@@ -19,7 +19,7 @@ class DummyModel extends BaseModel<null, any> {
 export class TodoListViewModel extends BaseViewModel<DummyModel> {
   public todos: ObservableCollection<TodoItem>;
 
-  private _newTodoText$ = new BehaviorSubject<string>("");
+  private _newTodoText$ = new BehaviorSubject<string>('');
   public newTodoText$: Observable<string> = this._newTodoText$.asObservable();
 
   public addTodoCommand: Command<void, void>;
@@ -32,12 +32,10 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
 
     this.addTodoCommand = new Command<void, void>(
       async () => this.addTodo(),
-      this._newTodoText$.pipe(map((text) => text.trim().length > 0))
+      this._newTodoText$.pipe(map((text) => text.trim().length > 0)),
     );
 
-    this.toggleTodoCommand = new Command<string, void>(async (todoId) =>
-      this.toggleTodo(todoId)
-    );
+    this.toggleTodoCommand = new Command<string, void>(async (todoId) => this.toggleTodo(todoId));
   }
 
   private addTodo(): void {
@@ -53,7 +51,7 @@ export class TodoListViewModel extends BaseViewModel<DummyModel> {
       });
 
       this.todos.add(newTodo);
-      this._newTodoText$.next("");
+      this._newTodoText$.next('');
     }
   }
 

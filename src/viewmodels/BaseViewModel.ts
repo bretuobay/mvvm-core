@@ -1,7 +1,7 @@
-import { Observable, Subject, Subscription } from "rxjs";
-import { map, startWith, takeUntil } from "rxjs/operators";
-import { ZodError } from "zod";
-import { BaseModel } from "../models/BaseModel";
+import { Observable, Subject, Subscription } from 'rxjs';
+import { map, startWith, takeUntil } from 'rxjs/operators';
+import { ZodError } from 'zod';
+import { BaseModel } from '../models/BaseModel';
 
 /**
  * @class BaseViewModel
@@ -17,7 +17,7 @@ export class BaseViewModel<TModel extends BaseModel<any, any>> {
   // Expose observables directly from the injected model
   //    TODO: check for reason why we need to use @ts-ignore here
   //   @ts-ignore
-  public readonly data$: Observable<TModel["data"]>;
+  public readonly data$: Observable<TModel['data']>;
   public readonly isLoading$: Observable<boolean>;
   public readonly error$: Observable<any>;
 
@@ -26,9 +26,7 @@ export class BaseViewModel<TModel extends BaseModel<any, any>> {
 
   constructor(protected readonly model: TModel) {
     if (!model) {
-      throw new Error(
-        "BaseViewModel requires an instance of BaseModel in its constructor."
-      );
+      throw new Error('BaseViewModel requires an instance of BaseModel in its constructor.');
     }
 
     this.data$ = this.model.data$.pipe(takeUntil(this._destroy$));
@@ -42,7 +40,7 @@ export class BaseViewModel<TModel extends BaseModel<any, any>> {
     this.validationErrors$ = this.model.error$.pipe(
       map((err) => (err instanceof ZodError ? err : null)),
       startWith(null), // Ensure it always starts with null
-      takeUntil(this._destroy$)
+      takeUntil(this._destroy$),
     );
 
     // If the ViewModel needs to trigger validation based on changes to its own internal state,

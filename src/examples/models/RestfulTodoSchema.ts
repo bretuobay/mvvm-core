@@ -6,8 +6,8 @@ import { z } from 'zod';
  * and before sending data to the API.
  */
 export const RestfulTodoSchema = z.object({
-  id: z.string().uuid().or(z.string().startsWith("temp_")), // Allow UUIDs or temporary IDs
-  text: z.string().min(1, { message: "Todo text cannot be empty" }),
+  id: z.string().uuid().or(z.string().startsWith('temp_')), // Allow UUIDs or temporary IDs
+  text: z.string().min(1, { message: 'Todo text cannot be empty' }),
   isCompleted: z.boolean(),
   createdAt: z.string().datetime().optional(), // Optional: ISO date string
   updatedAt: z.string().datetime().optional(), // Optional: ISO date string

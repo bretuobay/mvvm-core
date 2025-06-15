@@ -1,9 +1,9 @@
 // src/viewmodels/RestfulApiViewModel.ts
-import { BehaviorSubject, combineLatest, Observable } from "rxjs";
-import { map, startWith } from "rxjs/operators";
-import { RestfulApiModel } from "../models/RestfulApiModel";
-import { Command } from "../commands/Command"; // Assuming Command is in '../commands'
-import { ZodSchema } from "zod";
+import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
+import { RestfulApiModel } from '../models/RestfulApiModel';
+import { Command } from '../commands/Command'; // Assuming Command is in '../commands'
+import { ZodSchema } from 'zod';
 
 // Helper type to check if TData is an array and extract item type
 type ItemWithId = { id: string; [key: string]: any };
@@ -41,28 +41,21 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
   // Commands for CRUD operations
   public readonly fetchCommand: Command<string | string[] | void, void>;
   public readonly createCommand: Command<Partial<TData>, void>;
-  public readonly updateCommand: Command<
-    { id: string; payload: Partial<TData> },
-    void
-  >;
+  public readonly updateCommand: Command<{ id: string; payload: Partial<TData> }, void>;
   public readonly deleteCommand: Command<string, void>;
 
   // Optional: Example of view-specific state for a collection
   // If TData is an array, you might want to manage selections, filters, etc.
   // This example assumes TData can be an array where items have an 'id'
   public readonly selectedItem$: Observable<ExtractItemType<TData> | null>;
-  protected readonly _selectedItemId$ = new BehaviorSubject<string | null>(
-    null
-  );
+  protected readonly _selectedItemId$ = new BehaviorSubject<string | null>(null);
 
   /**
    * @param model An instance of RestfulApiModel that this ViewModel will manage.
    */
   constructor(model: RestfulApiModel<TData, TSchema>) {
     if (!(model instanceof RestfulApiModel)) {
-      throw new Error(
-        "RestfulApiViewModel requires an instance of RestfulApiModel."
-      );
+      throw new Error('RestfulApiViewModel requires an instance of RestfulApiModel.');
     }
     this.model = model;
 
@@ -103,10 +96,10 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
           // Type guard to ensure items have an 'id' property of type string
           const itemWithId = data.find((item: unknown): item is ItemWithId => {
             return (
-              typeof item === "object" &&
+              typeof item === 'object' &&
               item !== null &&
-              "id" in item &&
-              typeof (item as any).id === "string" &&
+              'id' in item &&
+              typeof (item as any).id === 'string' &&
               (item as any).id === selectedId
             );
           });
@@ -114,7 +107,7 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
         }
         return null;
       }),
-      startWith(null) // Ensure initial value
+      startWith(null), // Ensure initial value
     );
     // Note: No explicit subscription to this.selectedItem$ is made *within* this class,
     // so _selectedItemSubscription is not used for this specific observable.

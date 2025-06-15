@@ -5,53 +5,57 @@ This is a basic Todo application built with React and Vite, demonstrating how to
 ## Overview
 
 The application showcases the following components from the `mvvm-core` library:
--   **`BaseModel`**: Used as the base for `TodoItem.ts`, where each todo item manages its own data (id, text, completion status).
--   **`BaseViewModel`**: Used as the base for `TodoListViewModel.ts`, which manages the overall state of the todo list, including a collection of `TodoItem`s and commands.
--   **`Command`**: Used in `TodoListViewModel` for actions like adding a new todo (`addTodoCommand`) and toggling a todo's completion status (`toggleTodoCommand`).
--   **`ObservableCollection`**: Used in `TodoListViewModel` to hold the list of `TodoItem`s and notify subscribers of changes to the collection.
+
+- **`BaseModel`**: Used as the base for `TodoItem.ts`, where each todo item manages its own data (id, text, completion status).
+- **`BaseViewModel`**: Used as the base for `TodoListViewModel.ts`, which manages the overall state of the todo list, including a collection of `TodoItem`s and commands.
+- **`Command`**: Used in `TodoListViewModel` for actions like adding a new todo (`addTodoCommand`) and toggling a todo's completion status (`toggleTodoCommand`).
+- **`ObservableCollection`**: Used in `TodoListViewModel` to hold the list of `TodoItem`s and notify subscribers of changes to the collection.
 
 The React components subscribe to observables exposed by the ViewModel and Models to reactively update the UI.
 
 ## Project Structure
 
--   **`public/`**: Static assets.
--   **`src/`**: Source files for the React application.
-    -   **`assets/`**: (If any, typically for images, etc. - not used in this basic example)
-    -   **`components/`**: React components for the UI.
-        -   `AddTodoForm.tsx`: Component for adding new todos.
-        -   `TodoListItem.tsx`: Component for displaying a single todo item.
-        -   `TodoList.tsx`: Component for displaying the list of todos.
-    -   **`models/`**: Data models.
-        -   `TodoItem.ts`: Model for an individual todo item, extends `BaseModel`.
-    -   **`viewmodels/`**: ViewModels.
-        -   `TodoListViewModel.ts`: ViewModel for managing the todo list and related logic, extends `BaseViewModel`.
-    -   `App.css`: Styles for the `App` component.
-    -   `App.tsx`: Main application component that instantiates the ViewModel and composes the UI.
-    -   `index.css`: Global styles.
-    -   `main.tsx`: Entry point for the React application.
--   `index.html`: Main HTML file for Vite.
--   `package.json`: Project dependencies and scripts. Note that `mvvm-core` is linked locally using a `file:` path.
--   `vite.config.ts`: Vite configuration.
--   `tsconfig.json` & `tsconfig.node.json`: TypeScript configurations.
+- **`public/`**: Static assets.
+- **`src/`**: Source files for the React application.
+  - **`assets/`**: (If any, typically for images, etc. - not used in this basic example)
+  - **`components/`**: React components for the UI.
+    - `AddTodoForm.tsx`: Component for adding new todos.
+    - `TodoListItem.tsx`: Component for displaying a single todo item.
+    - `TodoList.tsx`: Component for displaying the list of todos.
+  - **`models/`**: Data models.
+    - `TodoItem.ts`: Model for an individual todo item, extends `BaseModel`.
+  - **`viewmodels/`**: ViewModels.
+    - `TodoListViewModel.ts`: ViewModel for managing the todo list and related logic, extends `BaseViewModel`.
+  - `App.css`: Styles for the `App` component.
+  - `App.tsx`: Main application component that instantiates the ViewModel and composes the UI.
+  - `index.css`: Global styles.
+  - `main.tsx`: Entry point for the React application.
+- `index.html`: Main HTML file for Vite.
+- `package.json`: Project dependencies and scripts. Note that `mvvm-core` is linked locally using a `file:` path.
+- `vite.config.ts`: Vite configuration.
+- `tsconfig.json` & `tsconfig.node.json`: TypeScript configurations.
 
 ## Prerequisites
 
--   Node.js (version 18.x or later recommended)
--   npm (or yarn/pnpm)
+- Node.js (version 18.x or later recommended)
+- npm (or yarn/pnpm)
 
 ## Getting Started
 
 1.  **Navigate to the example directory:**
+
     ```bash
     cd examples/react-example
     ```
 
 2.  **Install dependencies:**
     This will install React, ReactDOM, Vite, TypeScript, and also link the local `mvvm-core` library from the root of this repository.
+
     ```bash
     npm install
     ```
-    *(If you are in an environment where the `mvvm-core` root directory's `dist` folder (build output) is not yet built, you might need to build the main library first. Typically, this would be `npm run build` in the root directory of the `mvvm-core` project.)*
+
+    _(If you are in an environment where the `mvvm-core` root directory's `dist` folder (build output) is not yet built, you might need to build the main library first. Typically, this would be `npm run build` in the root directory of the `mvvm-core` project.)_
 
 3.  **Run the development server:**
     ```bash

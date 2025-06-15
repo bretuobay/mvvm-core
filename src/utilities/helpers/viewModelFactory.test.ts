@@ -3,10 +3,7 @@ import { z, ZodError } from 'zod';
 import { take } from 'rxjs/operators';
 import { BaseModel } from '../../models/BaseModel';
 import { BaseViewModel } from '../../viewmodels/BaseViewModel';
-import {
-  createGenericViewModel,
-  GenericViewModelFactoryConfig,
-} from './viewModelFactory';
+import { createGenericViewModel, GenericViewModelFactoryConfig } from './viewModelFactory';
 
 // 1. Simple NavigationItemSchema using Zod
 const NavigationItemSchema = z.object({
@@ -56,7 +53,6 @@ describe('createGenericViewModel', () => {
 
   const NavigationItemArraySchema = z.array(NavigationItemSchema);
 
-
   // Test Case 1: "should create a ViewModel instance with the correct Model and initial data"
   it('should create a ViewModel instance with the correct Model and initial data', () => {
     return new Promise<void>((done) => {
@@ -79,13 +75,13 @@ describe('createGenericViewModel', () => {
       const viewModel = createGenericViewModel(config);
 
       expect(viewModel).toBeInstanceOf(ExampleViewModel);
-    expect(viewModel.model).toBeInstanceOf(ExampleModel);
+      expect(viewModel.model).toBeInstanceOf(ExampleModel);
 
-    viewModel.data$.subscribe((data) => {
-      expect(data).toEqual(navItemsData);
-      done();
+      viewModel.data$.subscribe((data) => {
+        expect(data).toEqual(navItemsData);
+        done();
+      });
     });
-  });
   });
 
   // Test Case 2: "should reflect model data changes in the ViewModel"
@@ -107,30 +103,33 @@ describe('createGenericViewModel', () => {
       };
       const viewModel = createGenericViewModel(config);
 
-      const updatedNavItemsData: NavigationItem[] = [
-      { path: '/contact', label: 'Contact' },
-    ];
+      const updatedNavItemsData: NavigationItem[] = [{ path: '/contact', label: 'Contact' }];
 
-    // Subscribe first to catch the change
-    let callCount = 0;
-    viewModel.data$.subscribe((data) => {
-      callCount++;
-      if (callCount === 1) { // Initial data
-        expect(data).toEqual(navItemsData);
-      } else if (callCount === 2) { // Updated data
-        expect(data).toEqual(updatedNavItemsData);
-        done();
-      }
+      // Subscribe first to catch the change
+      let callCount = 0;
+      viewModel.data$.subscribe((data) => {
+        callCount++;
+        if (callCount === 1) {
+          // Initial data
+          expect(data).toEqual(navItemsData);
+        } else if (callCount === 2) {
+          // Updated data
+          expect(data).toEqual(updatedNavItemsData);
+          done();
+        }
+      });
+
+      viewModel.model.setData(updatedNavItemsData);
     });
-
-    viewModel.model.setData(updatedNavItemsData);
-  });
   });
 
   // Test Case 3: "should handle schema validation errors"
   it('should handle schema validation errors', () => {
     return new Promise<void>((done) => {
-      const modelConstructorInputForErrorTest: ExampleModelConstructorInput<NavigationItem[] | null, typeof NavigationItemArraySchema> = {
+      const modelConstructorInputForErrorTest: ExampleModelConstructorInput<
+        NavigationItem[] | null,
+        typeof NavigationItemArraySchema
+      > = {
         initialData: null, // initialData is null
         schema: NavigationItemArraySchema, // schema
         shouldValidateSchema: true, // shouldValidateSchema
@@ -148,69 +147,72 @@ describe('createGenericViewModel', () => {
 
       const viewModel = createGenericViewModel(config);
 
-    const invalidNavItemData: any[] = [{ path: 123, label: 'Invalid' }]; // Invalid data
+      const invalidNavItemData: any[] = [{ path: 123, label: 'Invalid' }]; // Invalid data
 
-    // Directly call the public testValidate method on the model instance
-    const validationResult = viewModel.model.testValidate(invalidNavItemData as NavigationItem[]);
-    if (!validationResult.success) {
-      viewModel.model.setError(validationResult.error);
-    } else {
-      // Should not happen in this test case
-      // If it does, let the test fail by not setting the error,
-      // or explicitly fail: expect(validationResult.success).toBe(false);
-      throw new Error("Validation unexpectedly passed for invalid data.");
-    }
-
-    let errorCallbackCalled = false;
-    let validationErrorsCallbackCalled = false;
-
-    const checkDone = () => {
-      if (errorCallbackCalled && validationErrorsCallbackCalled) {
-        // Ensure initial checks for null also passed if they are part of the logic.
-        // However, the main goal here is to see the ZodError.
-        done();
+      // Directly call the public testValidate method on the model instance
+      const validationResult = viewModel.model.testValidate(invalidNavItemData as NavigationItem[]);
+      if (!validationResult.success) {
+        viewModel.model.setError(validationResult.error);
+      } else {
+        // Should not happen in this test case
+        // If it does, let the test fail by not setting the error,
+        // or explicitly fail: expect(validationResult.success).toBe(false);
+        throw new Error('Validation unexpectedly passed for invalid data.');
       }
-    };
 
-    viewModel.error$.subscribe((error) => {
-      if (error) { // Ignore initial null emission
-        expect(error).toBeInstanceOf(ZodError);
-        const zodError = error as ZodError;
-        expect(zodError.errors).toHaveLength(1);
-        expect(zodError.errors[0].path).toEqual([0, 'path']);
-        expect(zodError.errors[0].message).toBe('Expected string, received number');
-        errorCallbackCalled = true;
-        checkDone();
-      }
-    });
+      let errorCallbackCalled = false;
+      let validationErrorsCallbackCalled = false;
 
-    viewModel.validationErrors$.subscribe((validationError) => {
-      if (validationError) { // Ignore initial null emission
-        expect(validationError).toBeInstanceOf(ZodError);
-        const zodError = validationError as ZodError;
-        expect(zodError.errors).toHaveLength(1);
-        expect(zodError.errors[0].path).toEqual([0, 'path']);
-        expect(zodError.errors[0].message).toBe('Expected string, received number');
-        validationErrorsCallbackCalled = true;
-        checkDone();
-      }
-    });
+      const checkDone = () => {
+        if (errorCallbackCalled && validationErrorsCallbackCalled) {
+          // Ensure initial checks for null also passed if they are part of the logic.
+          // However, the main goal here is to see the ZodError.
+          done();
+        }
+      };
 
-    // Check initial state: data should be null, error should be null
-    // For data$
-    viewModel.data$.pipe(take(1)).subscribe(initialData => {
+      viewModel.error$.subscribe((error) => {
+        if (error) {
+          // Ignore initial null emission
+          expect(error).toBeInstanceOf(ZodError);
+          const zodError = error as ZodError;
+          expect(zodError.errors).toHaveLength(1);
+          expect(zodError.errors[0].path).toEqual([0, 'path']);
+          expect(zodError.errors[0].message).toBe('Expected string, received number');
+          errorCallbackCalled = true;
+          checkDone();
+        }
+      });
+
+      viewModel.validationErrors$.subscribe((validationError) => {
+        if (validationError) {
+          // Ignore initial null emission
+          expect(validationError).toBeInstanceOf(ZodError);
+          const zodError = validationError as ZodError;
+          expect(zodError.errors).toHaveLength(1);
+          expect(zodError.errors[0].path).toEqual([0, 'path']);
+          expect(zodError.errors[0].message).toBe('Expected string, received number');
+          validationErrorsCallbackCalled = true;
+          checkDone();
+        }
+      });
+
+      // Check initial state: data should be null, error should be null
+      // For data$
+      viewModel.data$.pipe(take(1)).subscribe((initialData) => {
         expect(initialData).toBeNull(); // As per modelConstructorInputForErrorTest
-    });
-    // For error$ - check it's null before the setError call above takes effect
-    viewModel.error$.pipe(take(1)).subscribe(initialError => {
+      });
+      // For error$ - check it's null before the setError call above takes effect
+      viewModel.error$.pipe(take(1)).subscribe((initialError) => {
         // This will catch the initial null. If setError has already been called
         // and emitted a ZodError before this subscription happens (less likely for BehaviorSubject),
         // this check might be on the ZodError itself.
         // The primary check for ZodError is in the other subscriptions.
-        if (!errorCallbackCalled) { // Check only if the main error check hasn't run
-             expect(initialError).toBeNull();
+        if (!errorCallbackCalled) {
+          // Check only if the main error check hasn't run
+          expect(initialError).toBeNull();
         }
+      });
     });
-  });
   });
 });

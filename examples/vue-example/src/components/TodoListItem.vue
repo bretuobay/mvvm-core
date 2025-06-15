@@ -1,10 +1,6 @@
 <template>
   <div v-if="itemData" class="todo-list-item">
-    <input
-      type="checkbox"
-      :checked="itemData.isCompleted"
-      @change="handleToggle"
-    />
+    <input type="checkbox" :checked="itemData.isCompleted" @change="handleToggle" />
     <span :class="{ completed: itemData.isCompleted }">
       {{ itemData.text }}
     </span>
@@ -12,9 +8,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, defineProps } from "vue";
-import type { Subscription } from "rxjs";
-import type { TodoItem, TodoItemData, TodoListViewModel } from "mvvm-core";
+import { ref, onMounted, onUnmounted, defineProps } from 'vue';
+import type { Subscription } from 'rxjs';
+import type { TodoItem, TodoItemData, TodoListViewModel } from 'mvvm-core';
 
 const props = defineProps<{
   todo: TodoItem;
@@ -51,7 +47,7 @@ const handleToggle = () => {
 .todo-list-item:last-child {
   border-bottom: none;
 }
-input[type="checkbox"] {
+input[type='checkbox'] {
   margin-right: 0.75em;
 }
 .completed {

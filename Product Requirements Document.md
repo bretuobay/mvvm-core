@@ -1,9 +1,10 @@
 Web Framework/Library Requirements Document
+
 1. Introduction
-This document outlines the requirements for a new web framework/library designed to facilitate the development of client-side web applications using the Model-View-ViewModel (MVVM) architectural pattern. The library aims to provide a set of core utilities that abstract common challenges in data management, API interaction, and state synchronization, making it easier to build complex, client-heavy applications like dashboards.
+   This document outlines the requirements for a new web framework/library designed to facilitate the development of client-side web applications using the Model-View-ViewModel (MVVM) architectural pattern. The library aims to provide a set of core utilities that abstract common challenges in data management, API interaction, and state synchronization, making it easier to build complex, client-heavy applications like dashboards.
 
 2. Goals and Objectives
-The primary goals of this library are:
+   The primary goals of this library are:
 
 To provide a robust and flexible foundation for building web applications following the MVVM pattern.
 
@@ -18,7 +19,7 @@ To simplify the development of CRUD (Create, Read, Update, Delete) applications 
 To reduce the need for framework-specific state management solutions by centralizing data handling within the library's models.
 
 3. Target Audience
-This library is intended for:
+   This library is intended for:
 
 Frontend developers building complex web applications.
 
@@ -27,8 +28,8 @@ Teams looking for a consistent and scalable approach to MVVM architecture across
 Developers working on data-heavy applications, dashboards, and single-page applications (SPAs) that require robust data management and real-time updates.
 
 4. Key Features and Utilities
-4.1. MVVM Pattern Support
-The library shall provide core primitives to implement the MVVM pattern effectively.
+   4.1. MVVM Pattern Support
+   The library shall provide core primitives to implement the MVVM pattern effectively.
 
 Base Model:
 
@@ -146,7 +147,7 @@ Requirement: The library documentation and examples should strongly advocate for
 Purpose: Decouples ViewModels from concrete implementations of their dependencies, making them easier to test and manage.
 
 5. Technical Requirements
-Language: TypeScript (mandatory for type safety and developer experience).
+   Language: TypeScript (mandatory for type safety and developer experience).
 
 Reactive Programming: RxJS (version 7+ recommended).
 
@@ -159,7 +160,7 @@ Bundling: Shall be compatible with modern module bundlers (e.g., Webpack, Rollup
 Browser Compatibility: Shall support evergreen browsers (Chrome, Firefox, Safari, Edge).
 
 6. Non-Functional Requirements
-Performance:
+   Performance:
 
 Data updates and view re-renders should be efficient, minimizing unnecessary computations.
 
@@ -196,8 +197,8 @@ Getting started guides and tutorials for common use cases.
 Examples demonstrating integration with React, Angular, and Vue.
 
 7. Core Components Detailed
-7.1. BaseModel<TData, TSchema>
-Generics: TData for the shape of the data, TSchema for the Zod schema type.
+   7.1. BaseModel<TData, TSchema>
+   Generics: TData for the shape of the data, TSchema for the Zod schema type.
 
 Properties (Observables):
 
@@ -300,7 +301,7 @@ clear(): void
 setItems(newItems: T[]): void (replaces all items and emits items$)
 
 8. Benefits
-Reduced Boilerplate: Provides ready-to-use patterns for data management and API interaction.
+   Reduced Boilerplate: Provides ready-to-use patterns for data management and API interaction.
 
 Improved Consistency: Enforces a consistent MVVM architecture across the application, regardless of the UI framework.
 

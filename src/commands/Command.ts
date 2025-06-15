@@ -1,6 +1,6 @@
-import { BehaviorSubject, Observable, isObservable, of, Subscription } from "rxjs";
-import { first, map, switchMap } from "rxjs/operators";
-import { IDisposable } from "../models/BaseModel"; // Adjust path as necessary
+import { BehaviorSubject, Observable, isObservable, of, Subscription } from 'rxjs';
+import { first, map, switchMap } from 'rxjs/operators';
+import { IDisposable } from '../models/BaseModel'; // Adjust path as necessary
 
 /**
  * @interface ICommand
@@ -25,18 +25,14 @@ export interface ICommand<TParam = void, TResult = void> {
  * @template TParam The type of the parameter passed to the command's execute function.
  * @template TResult The type of the result returned by the command's execute function.
  */
-export class Command<TParam = void, TResult = void>
-  implements ICommand<TParam, TResult>, IDisposable
-{
+export class Command<TParam = void, TResult = void> implements ICommand<TParam, TResult>, IDisposable {
   private _isDisposed = false;
   protected readonly _isExecuting$ = new BehaviorSubject<boolean>(false);
-  public readonly isExecuting$: Observable<boolean> =
-    this._isExecuting$.asObservable();
+  public readonly isExecuting$: Observable<boolean> = this._isExecuting$.asObservable();
 
   protected readonly _canExecute$: Observable<boolean>; // Derived from constructor arg
   protected readonly _executeError$ = new BehaviorSubject<any>(null);
-  public readonly executeError$: Observable<any> =
-    this._executeError$.asObservable();
+  public readonly executeError$: Observable<any> = this._executeError$.asObservable();
 
   private readonly _executeFn: (param: TParam) => Promise<TResult>;
   private _canExecuteSubscription: Subscription | undefined;
@@ -50,12 +46,10 @@ export class Command<TParam = void, TResult = void>
    */
   constructor(
     executeFn: (param: TParam) => Promise<TResult>,
-    canExecuteFn?:
-      | ((param: TParam) => Observable<boolean> | boolean)
-      | Observable<boolean>
+    canExecuteFn?: ((param: TParam) => Observable<boolean> | boolean) | Observable<boolean>,
   ) {
-    if (typeof executeFn !== "function") {
-      throw new Error("Command requires an executeFn that is a function.");
+    if (typeof executeFn !== 'function') {
+      throw new Error('Command requires an executeFn that is a function.');
     }
     this._executeFn = executeFn;
 
@@ -63,7 +57,7 @@ export class Command<TParam = void, TResult = void>
       this._canExecute$ = of(true); // Always executable by default
     } else if (isObservable(canExecuteFn)) {
       this._canExecute$ = canExecuteFn;
-    } else if (typeof canExecuteFn === "function") {
+    } else if (typeof canExecuteFn === 'function') {
       // If canExecuteFn is a function, it takes the parameter.
       // We need to provide a default value for the parameter when mapping
       // to an observable that doesn't have a parameter.
@@ -76,7 +70,7 @@ export class Command<TParam = void, TResult = void>
       // to canExecuteFn and using combineLatest with another subject for param.
       this._canExecute$ = of(true); // Default to true, or user must manage
       console.warn(
-        "canExecuteFn as a function for Command's constructor is deprecated. Use an Observable<boolean> for reactive canExecute$."
+        "canExecuteFn as a function for Command's constructor is deprecated. Use an Observable<boolean> for reactive canExecute$.",
       );
       // A better way would be to create a separate internal subject for params
       // and combine it with the canExecuteFn. For now, this is a simplification.
@@ -85,7 +79,7 @@ export class Command<TParam = void, TResult = void>
       // This path assigns `of(true)` to `_canExecute$`.
     } else {
       throw new Error(
-        "canExecuteFn must be an Observable<boolean> or a function returning boolean/Observable<boolean>."
+        'canExecuteFn must be an Observable<boolean> or a function returning boolean/Observable<boolean>.',
       );
     }
   }
@@ -140,11 +134,7 @@ export class Command<TParam = void, TResult = void>
    * The observable indicating whether the command can currently be executed.
    */
   public get canExecute$(): Observable<boolean> {
-    return this._canExecute$.pipe(
-      switchMap((canExec) =>
-        this._isExecuting$.pipe(map((isExec) => canExec && !isExec))
-      )
-    );
+    return this._canExecute$.pipe(switchMap((canExec) => this._isExecuting$.pipe(map((isExec) => canExec && !isExec))));
   }
 
   /**
@@ -155,14 +145,14 @@ export class Command<TParam = void, TResult = void>
    */
   public async execute(param: TParam): Promise<TResult | undefined> {
     if (this._isDisposed) {
-      console.log("Command is disposed. Cannot execute.");
+      console.log('Command is disposed. Cannot execute.');
       return Promise.resolve(undefined); // Or reject, depending on desired contract
     }
 
     const canExecuteNow = await this.canExecute$.pipe(first()).toPromise();
 
     if (!canExecuteNow) {
-      console.log("Command cannot be executed.");
+      console.log('Command cannot be executed.');
       return;
     }
 
