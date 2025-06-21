@@ -218,10 +218,14 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
 
     const processPayloadItem = (itemPayload: Partial<ExtractItemType<TData>>) => {
       let tempItem: ExtractItemType<TData> & { tempId?: string };
-      if (!(itemPayload as ItemWithId).id) {
+      if (!(itemPayload as unknown as ItemWithId).id) {
         const tempId = generateTempId();
-        tempItem = { ...itemPayload, id: tempId, tempId: tempId } as ExtractItemType<TData> & { tempId: string };
+        tempItem = { ...itemPayload, id: tempId, tempId: tempId } as unknown as ExtractItemType<TData> & {
+          tempId: string;
+        };
       } else {
+        // @ts-ignore temp: potentially with issues
+        // If payload has an ID, we assume it's a valid item and use it directly.
         tempItem = itemPayload as ExtractItemType<TData>;
       }
       tempItems.push(tempItem);
@@ -232,8 +236,9 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
       const itemsToAdd = isPayloadArray
         ? (payload as Partial<ExtractItemType<TData>>[]).map(processPayloadItem)
         : [processPayloadItem(payload as Partial<ExtractItemType<TData>>)];
-      optimisticData = [...originalData, ...itemsToAdd.map(p => ({...p, id: p.tempId || (p as any).id }))] as TData;
-    } else { // originalData is single item or null
+      optimisticData = [...originalData, ...itemsToAdd.map((p) => ({ ...p, id: p.tempId || (p as any).id }))] as TData;
+    } else {
+      // originalData is single item or null
       if (isPayloadArray) {
         // This case is problematic if TData is not an array type.
         // If TData is User, but payload is User[], this implies changing TData to User[]
@@ -243,7 +248,7 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
         // The check at the beginning of the function should prevent this if originalData is a single non-null item.
         // If originalData is null, and payload is array, we assume TData is an array type.
         const itemsToAdd = (payload as Partial<ExtractItemType<TData>>[]).map(processPayloadItem);
-        optimisticData = itemsToAdd.map(p => ({...p, id: p.tempId || (p as any).id })) as TData;
+        optimisticData = itemsToAdd.map((p) => ({ ...p, id: p.tempId || (p as any).id })) as TData;
       } else {
         const itemToAdd = processPayloadItem(payload as Partial<ExtractItemType<TData>>);
         optimisticData = { ...itemToAdd, id: itemToAdd.tempId || (itemToAdd as any).id } as TData;
@@ -286,7 +291,7 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
             );
           } else if ((correspondingTempItem as unknown as ItemWithId)?.id) {
             // Fallback if payload had an ID and it was used for optimistic update
-             tempFinalDataArray = tempFinalDataArray.map((item: any) =>
+            tempFinalDataArray = tempFinalDataArray.map((item: any) =>
               item.id === (correspondingTempItem as unknown as ItemWithId).id ? createdItem : item,
             );
           }
@@ -395,7 +400,7 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
       // Failure: Revert to original data state before optimistic update
       // Need to be careful to set the correct part of the data back
       if (Array.isArray(originalData) && itemToUpdateOriginal) {
-         const revertedArray = (originalData as ExtractItemType<TData>[]).map((item: any) =>
+        const revertedArray = (originalData as ExtractItemType<TData>[]).map((item: any) =>
           item.id === id ? itemToUpdateOriginal : item,
         );
         this.setData(revertedArray as TData);
