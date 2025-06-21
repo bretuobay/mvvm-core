@@ -250,16 +250,26 @@ describe('RestfulApiViewModel', () => {
   });
 
   // General tests (can use either view model, typically array based for fetch all)
-  let commonMockModel: MockRestfulApiModel<ItemArray>; // Use ItemArray for fetch all, etc.
+  let commonMockModel: MockRestfulApiModel<ItemArray>;
   let commonViewModel: RestfulApiViewModel<ItemArray, typeof ItemSchema>;
 
+  // This beforeEach is for the top-level 'RestfulApiViewModel' describe block.
+  // It will set up commonMockModel and commonViewModel for tests directly under this describe,
+  // but not for those inside nested describe blocks like 'ViewModel with TData = ItemArray'
+  // unless those nested blocks choose to use these common instances.
   beforeEach(() => {
-    commonMockModel = new MockRestfulApiModel<ItemArray>([]);
+    // Initialize commonMockModel and commonViewModel here
+    // These will be used by tests that are not inside the more specific describe blocks below
+    commonMockModel = new MockRestfulApiModel<ItemArray>([]); // Example: defaults to ItemArray model
     commonViewModel = new RestfulApiViewModel(commonMockModel);
   });
 
+  // Top-level afterEach for cleaning up common instances
   afterEach(() => {
     vi.clearAllMocks();
+    if (commonViewModel) { // Ensure it exists before trying to dispose
+        commonViewModel.dispose();
+    }
   });
 
   // This test now verifies the explicit error condition for non-RestfulApiModel types.
@@ -278,51 +288,48 @@ describe('RestfulApiViewModel', () => {
 
   it('should expose data$, isLoading$, and error$ from the model', async () => {
     const testData: ItemArray = [{ id: 'test1', name: 'Test Item 1' }];
-    mockModel._data$.next(testData);
-    mockModel._isLoading$.next(true);
-    mockModel._error$.next(new Error('Test Error'));
+    commonMockModel._data$.next(testData); // Use commonMockModel
+    commonMockModel._isLoading$.next(true); // Use commonMockModel
+    commonMockModel._error$.next(new Error('Test Error')); // Use commonMockModel
 
-    expect(await firstValueFrom(viewModel.data$)).toEqual(testData);
-    expect(await firstValueFrom(viewModel.isLoading$)).toBe(true);
-    expect(await firstValueFrom(viewModel.error$)).toEqual(new Error('Test Error'));
+    expect(await firstValueFrom(commonViewModel.data$)).toEqual(testData); // Use commonViewModel
+    expect(await firstValueFrom(commonViewModel.isLoading$)).toBe(true); // Use commonViewModel
+    expect(await firstValueFrom(commonViewModel.error$)).toEqual(new Error('Test Error')); // Use commonViewModel
   });
 
   describe('fetchCommand', () => {
     it('should call model.fetch without ID when executed without parameter', async () => {
       const loadingStates: boolean[] = [];
-      viewModel.isLoading$.pipe(take(3)).subscribe((val) => loadingStates.push(val)); // Expect 3 states: initial, during, after
+      commonViewModel.isLoading$.pipe(take(3)).subscribe((val) => loadingStates.push(val));
 
       const dataStates: (ItemArray | null)[] = [];
-      viewModel.data$.pipe(take(2)).subscribe((val) => dataStates.push(val)); // Expect 2 states: initial, after fetch
+      commonViewModel.data$.pipe(take(2)).subscribe((val) => dataStates.push(val));
 
-      await viewModel.fetchCommand.execute();
+      await commonViewModel.fetchCommand.execute();
 
-      expect(mockModel.fetch).toHaveBeenCalledWith(undefined);
-      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
+      expect(commonMockModel.fetch).toHaveBeenCalledWith(undefined);
+      expect(await firstValueFrom(commonViewModel.fetchCommand.isExecuting$)).toBe(false);
       expect(loadingStates).toEqual([false, true, false]);
       expect(dataStates[dataStates.length - 1]).toEqual([
         { id: '1', name: 'Item 1' },
         { id: '2', name: 'Item 2' },
       ]);
-      expect(await firstValueFrom(viewModel.error$)).toBeNull();
+      expect(await firstValueFrom(commonViewModel.error$)).toBeNull();
     });
 
-    // Test is made to pass by "item-id-3" to ["item-id-3"]
-    // Need to look into it.
     it('should call model.fetch with ID when executed with a string parameter', async () => {
-      await viewModel.fetchCommand.execute('item-id-3');
-      expect(mockModel.fetch).toHaveBeenCalledWith(['item-id-3']);
-      expect(await firstValueFrom(viewModel.data$)).toEqual({
+      await commonViewModel.fetchCommand.execute('item-id-3');
+      expect(commonMockModel.fetch).toHaveBeenCalledWith(['item-id-3']);
+      expect(await firstValueFrom(commonViewModel.data$)).toEqual({
         id: 'item-id-3',
         name: 'Fetched item-id-3',
       });
     });
 
     it('should call model.fetch with array of IDs when executed with an array parameter', async () => {
-      await viewModel.fetchCommand.execute(['item-id-4', 'item-id-5']);
-      expect(mockModel.fetch).toHaveBeenCalledWith(['item-id-4', 'item-id-5']);
-      // Mock model returns single item for array of IDs, adjust if mock changes
-      expect(await firstValueFrom(viewModel.data$)).toEqual({
+      await commonViewModel.fetchCommand.execute(['item-id-4', 'item-id-5']);
+      expect(commonMockModel.fetch).toHaveBeenCalledWith(['item-id-4', 'item-id-5']);
+      expect(await firstValueFrom(commonViewModel.data$)).toEqual({
         id: 'item-id-4',
         name: 'Fetched item-id-4',
       });
@@ -330,18 +337,18 @@ describe('RestfulApiViewModel', () => {
 
     it('should set error$ if fetch fails', async () => {
       const fetchError = new Error('Fetch failed');
-      mockModel.fetch.mockImplementation(async () => {
-        mockModel._isLoading$.next(true);
-        mockModel._error$.next(fetchError);
-        mockModel._isLoading$.next(false);
+      commonMockModel.fetch.mockImplementation(async () => {
+        commonMockModel._isLoading$.next(true);
+        commonMockModel._error$.next(fetchError);
+        commonMockModel._isLoading$.next(false);
         throw fetchError;
       });
 
-      await expect(viewModel.fetchCommand.execute()).rejects.toThrow(fetchError);
+      await expect(commonViewModel.fetchCommand.execute()).rejects.toThrow(fetchError);
 
-      expect(await firstValueFrom(viewModel.error$)).toBe(fetchError);
-      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.fetchCommand.isExecuting$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.error$)).toBe(fetchError);
+      expect(await firstValueFrom(commonViewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.fetchCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -349,31 +356,31 @@ describe('RestfulApiViewModel', () => {
     const payload: Partial<Item> = { name: 'New Test Item' };
 
     it('should call model.create and update data$', async () => {
-      mockModel._data$.next([]); // Start with an empty array for collection
-      await viewModel.createCommand.execute(payload);
+      commonMockModel._data$.next([]);
+      await commonViewModel.createCommand.execute(payload);
 
-      expect(mockModel.create).toHaveBeenCalledWith(payload);
-      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(false);
-      const data = await firstValueFrom(viewModel.data$);
+      expect(commonMockModel.create).toHaveBeenCalledWith(payload);
+      expect(await firstValueFrom(commonViewModel.createCommand.isExecuting$)).toBe(false);
+      const data = await firstValueFrom(commonViewModel.data$);
       expect(Array.isArray(data) && data.length).toBe(1);
       expect(Array.isArray(data) && data[0].name).toBe('New Test Item');
-      expect(Array.isArray(data) && data[0].id).toMatch(/^new-/); // Check for mock ID pattern
+      expect(Array.isArray(data) && data[0].id).toMatch(/^new-/);
     });
 
     it('should set error$ if create fails', async () => {
       const createError = new Error('Create failed');
-      mockModel.create.mockImplementation(async () => {
-        mockModel._isLoading$.next(true);
-        mockModel._error$.next(createError);
-        mockModel._isLoading$.next(false);
+      commonMockModel.create.mockImplementation(async () => {
+        commonMockModel._isLoading$.next(true);
+        commonMockModel._error$.next(createError);
+        commonMockModel._isLoading$.next(false);
         throw createError;
       });
 
-      await expect(viewModel.createCommand.execute(payload)).rejects.toThrow(createError);
+      await expect(commonViewModel.createCommand.execute(payload)).rejects.toThrow(createError);
 
-      expect(await firstValueFrom(viewModel.error$)).toBe(createError);
-      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.createCommand.isExecuting$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.error$)).toBe(createError);
+      expect(await firstValueFrom(commonViewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.createCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -381,68 +388,68 @@ describe('RestfulApiViewModel', () => {
     const existingItem: Item = { id: '1', name: 'Original Name' };
     const payload: Partial<Item> = { name: 'Updated Name' };
 
-    beforeEach(() => {
-      mockModel._data$.next([existingItem]);
+    beforeEach(() => { // This beforeEach is scoped to 'updateCommand'
+      commonMockModel._data$.next([existingItem]);
     });
 
     it('should call model.update and update data$', async () => {
-      await viewModel.updateCommand.execute({ id: existingItem.id, payload });
+      await commonViewModel.updateCommand.execute({ id: existingItem.id, payload });
 
-      expect(mockModel.update).toHaveBeenCalledWith(existingItem.id, payload);
-      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(false);
-      const data = await firstValueFrom(viewModel.data$);
+      expect(commonMockModel.update).toHaveBeenCalledWith(existingItem.id, payload);
+      expect(await firstValueFrom(commonViewModel.updateCommand.isExecuting$)).toBe(false);
+      const data = await firstValueFrom(commonViewModel.data$);
       expect(Array.isArray(data) && data[0].name).toBe('Updated Name');
       expect(Array.isArray(data) && data[0].id).toBe(existingItem.id);
     });
 
     it('should set error$ if update fails', async () => {
       const updateError = new Error('Update failed');
-      mockModel.update.mockImplementation(async () => {
-        mockModel._isLoading$.next(true);
-        mockModel._error$.next(updateError);
-        mockModel._isLoading$.next(false);
+      commonMockModel.update.mockImplementation(async () => {
+        commonMockModel._isLoading$.next(true);
+        commonMockModel._error$.next(updateError);
+        commonMockModel._isLoading$.next(false);
         throw updateError;
       });
 
-      await expect(viewModel.updateCommand.execute({ id: existingItem.id, payload })).rejects.toThrow(updateError);
+      await expect(commonViewModel.updateCommand.execute({ id: existingItem.id, payload })).rejects.toThrow(updateError);
 
-      expect(await firstValueFrom(viewModel.error$)).toBe(updateError);
-      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.updateCommand.isExecuting$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.error$)).toBe(updateError);
+      expect(await firstValueFrom(commonViewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.updateCommand.isExecuting$)).toBe(false);
     });
   });
 
   describe('deleteCommand', () => {
     const itemToDelete: Item = { id: '1', name: 'To Be Deleted' };
 
-    beforeEach(() => {
-      mockModel._data$.next([itemToDelete, { id: '2', name: 'Keep Me' }]);
+    beforeEach(() => { // Scoped to 'deleteCommand'
+      commonMockModel._data$.next([itemToDelete, { id: '2', name: 'Keep Me' }]);
     });
 
     it('should call model.delete and update data$', async () => {
-      await viewModel.deleteCommand.execute(itemToDelete.id);
+      await commonViewModel.deleteCommand.execute(itemToDelete.id);
 
-      expect(mockModel.delete).toHaveBeenCalledWith(itemToDelete.id);
-      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(false);
-      const data = await firstValueFrom(viewModel.data$);
+      expect(commonMockModel.delete).toHaveBeenCalledWith(itemToDelete.id);
+      expect(await firstValueFrom(commonViewModel.deleteCommand.isExecuting$)).toBe(false);
+      const data = await firstValueFrom(commonViewModel.data$);
       expect(Array.isArray(data) && data.length).toBe(1);
       expect(Array.isArray(data) && data[0].id).toBe('2');
     });
 
     it('should set error$ if delete fails', async () => {
       const deleteError = new Error('Delete failed');
-      mockModel.delete.mockImplementation(async () => {
-        mockModel._isLoading$.next(true);
-        mockModel._error$.next(deleteError);
-        mockModel._isLoading$.next(false);
+      commonMockModel.delete.mockImplementation(async () => {
+        commonMockModel._isLoading$.next(true);
+        commonMockModel._error$.next(deleteError);
+        commonMockModel._isLoading$.next(false);
         throw deleteError;
       });
 
-      await expect(viewModel.deleteCommand.execute(itemToDelete.id)).rejects.toThrow(deleteError);
+      await expect(commonViewModel.deleteCommand.execute(itemToDelete.id)).rejects.toThrow(deleteError);
 
-      expect(await firstValueFrom(viewModel.error$)).toBe(deleteError);
-      expect(await firstValueFrom(viewModel.isLoading$)).toBe(false);
-      expect(await firstValueFrom(viewModel.deleteCommand.isExecuting$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.error$)).toBe(deleteError);
+      expect(await firstValueFrom(commonViewModel.isLoading$)).toBe(false);
+      expect(await firstValueFrom(commonViewModel.deleteCommand.isExecuting$)).toBe(false);
     });
   });
 
@@ -453,115 +460,94 @@ describe('RestfulApiViewModel', () => {
       { id: 'c', name: 'Charlie' },
     ];
 
-    beforeEach(() => {
-      mockModel._data$.next(items);
+    beforeEach(() => { // Scoped to 'selectedItem$'
+      commonMockModel._data$.next(items);
     });
 
     it('should emit null initially for selectedItem$', async () => {
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
     });
 
     it('should update selectedItem$ when selectItem is called with a valid ID', async () => {
-      // Ensure initial data is set for this specific test context
-      mockModel._data$.next(items); // `items` is defined in the describe block's scope
+      commonMockModel._data$.next(items);
 
       const emittedValues: (Item | null)[] = [];
-      const subscription = viewModel.selectedItem$.subscribe((value) => {
+      const subscription = commonViewModel.selectedItem$.subscribe((value) => {
         emittedValues.push(value);
       });
-
-      // Initial emission is typically null (from startWith(null) or if _selectedItemId$ is null)
-      // After mockModel._data$.next(items), if _selectedItemId$ is still null, it would emit null.
-      // So, emittedValues should have [null] or [null, null] at this point.
-
-      viewModel.selectItem('b'); // Action: select item 'b'
-
-      // After selectItem("b"), selectedItem$ should re-evaluate and emit the found item.
-      // emittedValues should now be [initialNull(s)..., items[1]]
-
-      subscription.unsubscribe(); // Clean up
-
-      // Check the last emitted value.
-      // This assumes that selectItem('b') synchronously triggers the emission.
-      // If there are multiple nulls at the start, this will still get the last actual item.
+      commonViewModel.selectItem('b');
+      subscription.unsubscribe();
       expect(emittedValues.pop()).toEqual(items[1]);
     });
 
     it('should emit null for selectedItem$ if ID is not found in the array', async () => {
-      mockModel._data$.next(items);
-      viewModel.selectItem('non-existent-id');
-      // It might take a microtask for combineLatest to emit, ensure data is there first
+      commonMockModel._data$.next(items);
+      commonViewModel.selectItem('non-existent-id');
       await vi.waitFor(async () => {
-        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+        expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
       });
     });
 
     it('should emit null for selectedItem$ if data$ is an empty array', async () => {
-      mockModel._data$.next([]); // Data is an empty array
-      viewModel.selectItem('a'); // Try to select something
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      commonMockModel._data$.next([]);
+      commonViewModel.selectItem('a');
+      expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
     });
 
     it('should emit null for selectedItem$ if data$ is not an array', async () => {
-      mockModel._data$.next({ id: 'single', name: 'Single Item' } as Item); // Change model data to single item
-      viewModel.selectItem('single'); // Try to select
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Should still be null as it expects an array
+      // This test might need adjustment if commonMockModel is strictly ItemArray.
+      // Forcing TData to be Item for this specific sub-test of commonViewModel.
+      (commonMockModel as MockRestfulApiModel<Item | null>)._data$.next({ id: 'single', name: 'Single Item' } as Item);
+      commonViewModel.selectItem('single');
+      expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
+      // Reset commonMockModel if needed for other tests in this describe block
+      commonMockModel._data$.next(items);
     });
 
     it('should react to changes in data$ and update selectedItem$', async () => {
-      mockModel._data$.next(items); // Initial data
+      commonMockModel._data$.next(items);
+      commonViewModel.selectItem('a');
+      expect(await firstValueFrom(commonViewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
 
-      // Select 'a'
-      viewModel.selectItem('a');
-      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
+      const newItems: ItemArray = [ { id: 'b', name: 'Bob' }, { id: 'c', name: 'Charlie' } ];
+      commonMockModel._data$.next(newItems);
 
-      // Simulate data update where 'a' is removed
-      const newItems: ItemArray = [
-        { id: 'b', name: 'Bob' },
-        { id: 'c', name: 'Charlie' },
-      ];
-      mockModel._data$.next(newItems); // This triggers re-evaluation of selectedItem$
-
-      // selectedItem$ should now be null because 'a' (the selectedId) is gone from the new data
-      // It might take a moment for combineLatest to propagate.
       await vi.waitFor(async () => {
-        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+        expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
       });
 
-      // Select 'b' from new data
-      viewModel.selectItem('b');
-      expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(newItems[0]);
+      commonViewModel.selectItem('b');
+      expect(await firstValueFrom(commonViewModel.selectedItem$.pipe(skip(1)))).toEqual(newItems[0]);
     });
 
     it('should handle selectItem(null) to clear selection', async () => {
-      mockModel._data$.next(items);
-      viewModel.selectItem('a');
-      // Wait for the selection to propagate
+      commonMockModel._data$.next(items);
+      commonViewModel.selectItem('a');
       await vi.waitFor(async () => {
-        expect(await firstValueFrom(viewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
+        expect(await firstValueFrom(commonViewModel.selectedItem$.pipe(skip(1)))).toEqual(items[0]);
       });
 
-      viewModel.selectItem(null);
+      commonViewModel.selectItem(null);
       await vi.waitFor(async () => {
-        expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+        expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
       });
     });
   });
 
   describe('dispose method', () => {
     it('should call dispose on the underlying model', () => {
-      const modelDisposeSpy = vi.spyOn(mockModel, 'dispose');
-      viewModel.dispose();
+      const modelDisposeSpy = vi.spyOn(commonMockModel, 'dispose');
+      commonViewModel.dispose();
       expect(modelDisposeSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should call dispose on all command instances', () => {
-      const fetchDisposeSpy = vi.spyOn(viewModel.fetchCommand, 'dispose');
-      const createDisposeSpy = vi.spyOn(viewModel.createCommand, 'dispose');
-      const updateDisposeSpy = vi.spyOn(viewModel.updateCommand, 'dispose');
-      const deleteDisposeSpy = vi.spyOn(viewModel.deleteCommand, 'dispose');
+      const fetchDisposeSpy = vi.spyOn(commonViewModel.fetchCommand, 'dispose');
+      const createDisposeSpy = vi.spyOn(commonViewModel.createCommand, 'dispose');
+      const updateDisposeSpy = vi.spyOn(commonViewModel.updateCommand, 'dispose');
+      const deleteDisposeSpy = vi.spyOn(commonViewModel.deleteCommand, 'dispose');
 
-      viewModel.dispose();
+      commonViewModel.dispose();
 
       expect(fetchDisposeSpy).toHaveBeenCalledTimes(1);
       expect(createDisposeSpy).toHaveBeenCalledTimes(1);
@@ -570,27 +556,18 @@ describe('RestfulApiViewModel', () => {
     });
 
     it('should complete the _selectedItemId$ subject', () => {
-      // Spy on the internal subject's complete method
-      // Accessing private/protected members for testing is sometimes necessary.
-      const selectedItemIdSubject = (viewModel as any)._selectedItemId$ as BehaviorSubject<string | null>;
+      const selectedItemIdSubject = (commonViewModel as any)._selectedItemId$ as BehaviorSubject<string | null>;
       const completeSpy = vi.spyOn(selectedItemIdSubject, 'complete');
-
-      viewModel.dispose();
-
+      commonViewModel.dispose();
       expect(completeSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should prevent new selections after disposal', async () => {
-      viewModel.dispose();
-      viewModel.selectItem('a'); // Attempt to select after disposal
-      // selectedItem$ should ideally remain null or not emit new values.
-      // Since _selectedItemId$ is completed, new values to it won't propagate through combineLatest in the same way.
-      // The existing value (likely null after completion if it emits one last time) should persist.
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull(); // Or its last value before completion
-
-      // Try to select again to ensure it's not just the initial state
-      viewModel.selectItem('b');
-      expect(await firstValueFrom(viewModel.selectedItem$)).toBeNull();
+      commonViewModel.dispose();
+      commonViewModel.selectItem('a');
+      expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
+      commonViewModel.selectItem('b');
+      expect(await firstValueFrom(commonViewModel.selectedItem$)).toBeNull();
     });
   });
 });

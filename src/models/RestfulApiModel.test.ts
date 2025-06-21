@@ -604,13 +604,35 @@ describe('RestfulApiModel', () => {
       name: 'Alice Updated By Server',
     };
 
-    // Use modelForUserArray and modelForSingleUser from create block's beforeEach
-    // Ensure they are reset or set up correctly for update tests.
-
+    // Declare these here so they are scoped for the whole describe block
+    let modelForUserArray: RestfulApiModel<User[], typeof UserSchema>;
+    let modelForSingleUser: RestfulApiModel<User, typeof UserSchema>;
     let originalUserInCollection: User;
     let initialCollectionForUpdate: User[];
 
     beforeEach(() => {
+      // Initialize models here if they are not already initialized in the outer block's beforeEach
+      // For this specific structure, they ARE initialized in the outer 'create method' describe's beforeEach.
+      // We need to ensure they are re-initialized or set up freshly if needed for 'update' tests,
+      // or ensure the outer beforeEach is sufficient and variables are correctly scoped.
+
+      // Re-initializing them here for clarity and to avoid test interference.
+      modelForUserArray = new RestfulApiModel<User[], typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: [], // Start empty for update tests, will be set specifically
+      });
+
+      modelForSingleUser = new RestfulApiModel<User, typeof UserSchema>({
+        baseUrl,
+        endpoint,
+        fetcher: mockFetcher,
+        schema: UserSchema,
+        initialData: null,
+      });
+
       // This setup is for modelForUserArray (TData = User[])
       originalUserInCollection = { id: '1', name: 'Alice Original', email: 'alice@example.com' };
       initialCollectionForUpdate = [
