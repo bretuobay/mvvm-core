@@ -78,7 +78,7 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
   private async executeApiRequest(
     url: string,
     options: RequestInit = {},
-    expectedType: 'single' | 'collection' | 'none' = 'single',
+    expectedType: 'single' | 'collection' | 'none' = 'collection',
   ): Promise<any> {
     this.setLoading(true);
     this.clearError();
@@ -247,13 +247,13 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
             (tempItemId && item.id === tempItemId) || item === tempItem // Reference check if no tempId was used
               ? createdItem
               : // Fallback: if payload had an ID, and server confirms it (or changes it)
-                // This part is tricky if server can change ID that client sent in payload.
-                // For now, tempId match is primary for arrays.
-                (payload as unknown as ItemWithId).id &&
-                  item.id === (payload as unknown as ItemWithId).id &&
-                  tempItemId === null
-                ? createdItem
-                : item,
+              // This part is tricky if server can change ID that client sent in payload.
+              // For now, tempId match is primary for arrays.
+              (payload as unknown as ItemWithId).id &&
+                item.id === (payload as unknown as ItemWithId).id &&
+                tempItemId === null
+              ? createdItem
+              : item,
           ) as TData,
         );
       } else {
