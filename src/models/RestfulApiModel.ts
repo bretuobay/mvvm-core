@@ -13,6 +13,9 @@ interface ItemWithId {
   [key: string]: any;
 }
 
+// Helper type to extract the underlying type if T is an array, otherwise returns T
+export type ExtractItemType<T> = T extends (infer U)[] ? U : T;
+
 /**
  * Defines a generic fetcher function type.
  * @template TResponse The expected type of the response data.
@@ -195,76 +198,119 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
    *
    * @param payload The data for the new resource. It's recommended not to include an `id` if the
    *                server generates it, allowing the optimistic update to use a temporary ID.
-   * @returns A promise that resolves with the created item (from the server response, including its final ID)
+   * @returns A promise that resolves with the created item(s) (from the server response, including final IDs)
    *          if the API call is successful.
-   *          Throws an error if the API request fails (after reverting optimistic changes and setting `error$`).
+   *          Throws an error if any API request fails (after reverting optimistic changes and setting `error$`).
    */
-  public async create(payload: Partial<TData>): Promise<TData | undefined> {
+  public async create(
+    payload: Partial<ExtractItemType<TData>> | Partial<ExtractItemType<TData>>[],
+  ): Promise<ExtractItemType<TData> | ExtractItemType<TData>[] | undefined> {
     const originalData = this._data$.getValue();
-    let tempItem: TData;
-    let optimisticData: TData | null = null;
-    let tempItemId: string | null = null;
+    const isPayloadArray = Array.isArray(payload);
+
+    if (isPayloadArray && !Array.isArray(originalData) && originalData !== null) {
+      this.setError(new Error('Cannot create multiple items when model data is a single item.'));
+      throw this._error$.getValue();
+    }
+
+    let optimisticData: TData | null = JSON.parse(JSON.stringify(originalData)); // Deep clone for safety
+    const tempItems: (ExtractItemType<TData> & { tempId?: string })[] = [];
+
+    const processPayloadItem = (itemPayload: Partial<ExtractItemType<TData>>) => {
+      let tempItem: ExtractItemType<TData> & { tempId?: string };
+      if (!(itemPayload as unknown as ItemWithId).id) {
+        const tempId = generateTempId();
+        tempItem = { ...itemPayload, id: tempId, tempId: tempId } as unknown as ExtractItemType<TData> & {
+          tempId: string;
+        };
+      } else {
+        // @ts-ignore temp: potentially with issues
+        // If payload has an ID, we assume it's a valid item and use it directly.
+        tempItem = itemPayload as ExtractItemType<TData>;
+      }
+      tempItems.push(tempItem);
+      return tempItem;
+    };
 
     if (Array.isArray(originalData)) {
-      // Ensure payload has a temporary ID if it doesn't have one
-      if (!(payload as unknown as ItemWithId).id) {
-        tempItemId = generateTempId();
-        tempItem = { ...payload, id: tempItemId } as TData;
-      } else {
-        tempItem = payload as TData; // Assume payload is sufficiently TData-like
-      }
-      optimisticData = [...originalData, tempItem] as TData;
+      const itemsToAdd = isPayloadArray
+        ? (payload as Partial<ExtractItemType<TData>>[]).map(processPayloadItem)
+        : [processPayloadItem(payload as Partial<ExtractItemType<TData>>)];
+      optimisticData = [...originalData, ...itemsToAdd.map((p) => ({ ...p, id: p.tempId || (p as any).id }))] as TData;
     } else {
-      // For single item, payload becomes the temp item. If it needs an ID, it should be there or server assigned.
-      // If the model holds a single item, optimistic update replaces it.
-      // Server will return the full item with ID.
-      if (!(payload as unknown as ItemWithId).id) {
-        tempItemId = generateTempId(); // Useful if we need to confirm replacement
-        tempItem = { ...payload, id: tempItemId } as TData;
+      // originalData is single item or null
+      if (isPayloadArray) {
+        // This case is problematic if TData is not an array type.
+        // If TData is User, but payload is User[], this implies changing TData to User[]
+        // This should ideally be handled by schema or a different model instance.
+        // For now, let's assume if originalData is not an array, payload also shouldn't be an array
+        // unless the intention is to switch the model to manage an array.
+        // The check at the beginning of the function should prevent this if originalData is a single non-null item.
+        // If originalData is null, and payload is array, we assume TData is an array type.
+        const itemsToAdd = (payload as Partial<ExtractItemType<TData>>[]).map(processPayloadItem);
+        optimisticData = itemsToAdd.map((p) => ({ ...p, id: p.tempId || (p as any).id })) as TData;
       } else {
-        tempItem = payload as TData;
+        const itemToAdd = processPayloadItem(payload as Partial<ExtractItemType<TData>>);
+        optimisticData = { ...itemToAdd, id: itemToAdd.tempId || (itemToAdd as any).id } as TData;
       }
-      optimisticData = tempItem;
     }
     this.setData(optimisticData);
 
     try {
-      const createdItem = (await this.executeApiRequest(
-        this.getUrl(),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload), // Send original payload without tempId
-        },
-        'single',
-      )) as TData; // Assuming TData is the type of a single item
+      const payloadsToProcess = isPayloadArray
+        ? (payload as Partial<ExtractItemType<TData>>[])
+        : [payload as Partial<ExtractItemType<TData>>];
 
-      // Success: Update data with server response
-      const currentDataAfterRequest = this._data$.getValue();
-      if (Array.isArray(currentDataAfterRequest)) {
-        this.setData(
-          currentDataAfterRequest.map((item: any) =>
-            (tempItemId && item.id === tempItemId) || item === tempItem // Reference check if no tempId was used
-              ? createdItem
-              : // Fallback: if payload had an ID, and server confirms it (or changes it)
-              // This part is tricky if server can change ID that client sent in payload.
-              // For now, tempId match is primary for arrays.
-              (payload as unknown as ItemWithId).id &&
-                item.id === (payload as unknown as ItemWithId).id &&
-                tempItemId === null
-              ? createdItem
-              : item,
-          ) as TData,
-        );
-      } else {
-        // For single item, or if array was cleared and set to single due to other ops
-        this.setData(createdItem);
+      const createdItemsPromises = payloadsToProcess.map(async (itemPayload, index) => {
+        // Use the original itemPayload for the request body, not the one with tempId
+        const requestBody = { ...itemPayload };
+        delete (requestBody as any).tempId;
+
+        return (await this.executeApiRequest(
+          this.getUrl(),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          },
+          'single', // API always creates one item at a time per request
+        )) as ExtractItemType<TData>;
+      });
+
+      const createdItemsResults = await Promise.all(createdItemsPromises);
+
+      // Success: Update data with server responses
+      let finalData = this._data$.getValue(); // Get current data, which is the optimistic data
+      if (Array.isArray(finalData)) {
+        let tempFinalDataArray = [...(finalData as ExtractItemType<TData>[])];
+        createdItemsResults.forEach((createdItem, index) => {
+          const correspondingTempItem = tempItems[index];
+          if (correspondingTempItem?.tempId) {
+            tempFinalDataArray = tempFinalDataArray.map((item: any) =>
+              item.id === correspondingTempItem.tempId ? createdItem : item,
+            );
+          } else if ((correspondingTempItem as unknown as ItemWithId)?.id) {
+            // Fallback if payload had an ID and it was used for optimistic update
+            tempFinalDataArray = tempFinalDataArray.map((item: any) =>
+              item.id === (correspondingTempItem as unknown as ItemWithId).id ? createdItem : item,
+            );
+          }
+        });
+        this.setData(tempFinalDataArray as TData);
+      } else if (finalData !== null && !isPayloadArray && createdItemsResults.length === 1) {
+        // Single item was created and model holds a single item
+        this.setData(createdItemsResults[0] as TData);
+      } else if (finalData === null && isPayloadArray && createdItemsResults.length > 0) {
+        // Model was null, and an array was created
+        this.setData(createdItemsResults as TData);
+      } else if (finalData === null && !isPayloadArray && createdItemsResults.length === 1) {
+        // Model was null, and a single item was created
+        this.setData(createdItemsResults[0] as TData);
       }
-      return createdItem;
+      // Return single item or array based on what was created
+      return isPayloadArray ? createdItemsResults : createdItemsResults[0];
     } catch (error) {
-      // Failure: Revert to original data
-      this.setData(originalData);
-      // Error already set by executeApiRequest, re-throw if needed by caller
+      this.setData(originalData); // Revert to original data on any error
       throw error;
     }
   }
@@ -291,31 +337,37 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
    * @returns A promise that resolves with the updated item (from the server response) if successful.
    *          Throws an error if the API request fails (after reverting optimistic changes) or if the item to update is not found.
    */
-  public async update(id: string, payload: Partial<TData>): Promise<TData | undefined> {
+  public async update(
+    id: string,
+    payload: Partial<ExtractItemType<TData>>,
+  ): Promise<ExtractItemType<TData> | undefined> {
     const originalData = this._data$.getValue();
-    let itemToUpdateOriginal: TData | undefined;
+    let itemToUpdateOriginal: ExtractItemType<TData> | undefined;
     let optimisticData: TData | null = null;
 
     if (Array.isArray(originalData)) {
-      itemToUpdateOriginal = originalData.find((item: any) => item.id === id) as TData | undefined;
+      const originalDataArray = originalData as ExtractItemType<TData>[];
+      itemToUpdateOriginal = originalDataArray.find((item: any) => item.id === id);
+
       if (!itemToUpdateOriginal) {
-        // Item not found, perhaps throw an error or handle as per requirements
-        console.error(`Item with id ${id} not found for update.`);
-        throw new Error(`Item with id ${id} not found for update.`);
+        console.error(`Item with id ${id} not found for update in collection.`);
+        throw new Error(`Item with id ${id} not found for update in collection.`);
       }
       const optimisticallyUpdatedItem = { ...itemToUpdateOriginal, ...payload };
-      optimisticData = originalData.map((item: any) => (item.id === id ? optimisticallyUpdatedItem : item)) as TData;
-    } else if (originalData && (originalData as any).id === id) {
-      itemToUpdateOriginal = originalData;
+      optimisticData = originalDataArray.map((item: any) =>
+        item.id === id ? optimisticallyUpdatedItem : item,
+      ) as TData;
+    } else if (originalData && (originalData as unknown as ItemWithId).id === id) {
+      itemToUpdateOriginal = originalData as ExtractItemType<TData>;
       optimisticData = { ...originalData, ...payload } as TData;
     } else {
-      console.error(`Item with id ${id} not found for update in single data mode.`);
-      throw new Error(`Item with id ${id} not found for update in single data mode.`);
+      console.error(`Item with id ${id} not found for update.`);
+      throw new Error(`Item with id ${id} not found for update.`);
     }
 
     if (itemToUpdateOriginal === undefined) {
-      // Should be caught by earlier checks
-      this.setError(new Error(`Update failed: Item with id ${id} not found.`));
+      // This case should ideally be caught by the checks above.
+      this.setError(new Error(`Update failed: Item with id ${id} not found prior to optimistic update.`));
       throw this._error$.getValue();
     }
 
@@ -327,30 +379,36 @@ export class RestfulApiModel<TData, TSchema extends ZodSchema<TData>> extends Ba
         {
           method: 'PUT', // Or 'PATCH'
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload), // Send only the payload
+          body: JSON.stringify(payload), // Send only the payload for the single item
         },
-        'single',
-      )) as TData;
+        'single', // API updates one item at a time
+      )) as ExtractItemType<TData>;
 
-      // Success: Update data with server response (if different from optimistic)
-      // This step is important if server returns additional fields like updatedAt
+      // Success: Update data with server response
       const currentDataAfterRequest = this._data$.getValue();
       if (Array.isArray(currentDataAfterRequest)) {
         this.setData(
-          currentDataAfterRequest.map((item: any) => (item.id === id ? updatedItemFromServer : item)) as TData,
+          (currentDataAfterRequest as ExtractItemType<TData>[]).map((item: any) =>
+            item.id === id ? updatedItemFromServer : item,
+          ) as TData,
         );
-      } else if (currentDataAfterRequest && (currentDataAfterRequest as any).id === id) {
-        this.setData(updatedItemFromServer);
+      } else if (currentDataAfterRequest && (currentDataAfterRequest as unknown as ItemWithId).id === id) {
+        this.setData(updatedItemFromServer as TData);
       }
       return updatedItemFromServer;
     } catch (error) {
       // Failure: Revert to original data state before optimistic update
+      // Need to be careful to set the correct part of the data back
       if (Array.isArray(originalData) && itemToUpdateOriginal) {
-        this.setData(originalData.map((item: any) => (item.id === id ? itemToUpdateOriginal : item)) as TData);
-      } else if (originalData && (originalData as any).id === id && itemToUpdateOriginal) {
-        this.setData(itemToUpdateOriginal);
+        const revertedArray = (originalData as ExtractItemType<TData>[]).map((item: any) =>
+          item.id === id ? itemToUpdateOriginal : item,
+        );
+        this.setData(revertedArray as TData);
+      } else if (originalData && (originalData as unknown as ItemWithId).id === id && itemToUpdateOriginal) {
+        // originalData was a single item that matched
+        this.setData(itemToUpdateOriginal as TData);
       } else {
-        // Fallback to full original data if specific item cannot be restored
+        // Fallback to full original data if specific item cannot be restored or logic above fails
         this.setData(originalData);
       }
       throw error;
@@ -434,7 +492,9 @@ export interface IRestfulApiModel<TData, TSchema extends ZodSchema<TData>> exten
   // This implies it also extends IDisposable
   // Define any additional public methods specific to RestfulApiModel if needed for the interface
   fetch(id?: string | string[]): Promise<void>;
-  create(payload: Partial<TData>): Promise<TData | undefined>;
-  update(id: string, payload: Partial<TData>): Promise<TData | undefined>;
+  create(
+    payload: Partial<ExtractItemType<TData>> | Partial<ExtractItemType<TData>>[],
+  ): Promise<ExtractItemType<TData> | ExtractItemType<TData>[] | undefined>;
+  update(id: string, payload: Partial<ExtractItemType<TData>>): Promise<ExtractItemType<TData> | undefined>;
   delete(id: string): Promise<void>;
 }

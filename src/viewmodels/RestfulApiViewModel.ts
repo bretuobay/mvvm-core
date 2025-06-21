@@ -7,6 +7,8 @@ import { ZodSchema } from 'zod';
 
 // Helper type to check if TData is an array and extract item type
 type ItemWithId = { id: string; [key: string]: any };
+// Using ExtractItemType from the model directly would be better if circular deps are not an issue.
+// For now, duplicating for clarity or until a shared types file is established.
 type ExtractItemType<T> = T extends (infer U)[] ? U : T;
 
 /**
@@ -40,8 +42,11 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
 
   // Commands for CRUD operations
   public readonly fetchCommand: Command<string | string[] | void, void>;
-  public readonly createCommand: Command<Partial<TData>, void>;
-  public readonly updateCommand: Command<{ id: string; payload: Partial<TData> }, void>;
+  public readonly createCommand: Command<
+    Partial<ExtractItemType<TData>> | Partial<ExtractItemType<TData>>[],
+    void
+  >;
+  public readonly updateCommand: Command<{ id: string; payload: Partial<ExtractItemType<TData>> }, void>;
   public readonly deleteCommand: Command<string, void>;
 
   // Optional: Example of view-specific state for a collection
@@ -74,11 +79,13 @@ export class RestfulApiViewModel<TData, TSchema extends ZodSchema<TData>> {
       await this.model.fetch(ids);
     });
 
-    this.createCommand = new Command(async (payload: Partial<TData>) => {
-      await this.model.create(payload);
-    });
+    this.createCommand = new Command(
+      async (payload: Partial<ExtractItemType<TData>> | Partial<ExtractItemType<TData>>[]) => {
+        await this.model.create(payload);
+      },
+    );
 
-    this.updateCommand = new Command(async ({ id, payload }) => {
+    this.updateCommand = new Command(async ({ id, payload }: { id: string; payload: Partial<ExtractItemType<TData>> }) => {
       await this.model.update(id, payload);
     });
 
