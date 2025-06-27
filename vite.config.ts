@@ -13,4 +13,9 @@ export default defineConfig({
     },
   },
   plugins: [dts({ insertTypesEntry: true, outDir: 'dist', tsconfigPath: './tsconfig.json', rollupTypes: true })], // also specify for dts plugin
+  test: {
+    globals: true, // Optional: to use vitest globals like describe, it without importing
+    environment: 'node', // Or 'jsdom'
+    testTimeout: 10000, // Global timeout of 10 seconds
+  },
 });
