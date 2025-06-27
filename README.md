@@ -410,4 +410,16 @@ export class TodosViewModel {
   //   </li>
   // </ul>
 }
+
+---
+
+## Test Suite Status and Known Issues
+
+The library includes a suite of unit tests built with Vitest. As of the latest updates:
+
+-   **`NotificationService`**: All tests are passing. Issues related to RxJS timer interactions and observable emissions during dismissal and auto-dismissal have been resolved.
+-   **`QueryableCollectionViewModel`**: A significant number of tests related to pagination, filtering, sorting, and item manipulation are currently skipped. These tests consistently timed out due to unresolved complexities in testing RxJS streams involving `debounceTime`, `combineLatest`, and `startWith` operators within the Vitest fake timer environment. Further investigation, potentially using `rxjs/testing TestScheduler` for more precise control over RxJS schedulers, is recommended to enable these tests.
+-   **`FormViewModel`**: Similar to `QueryableCollectionViewModel`, several tests related to debounced validation logic (affecting `isValid$`, `errors$`, and `fieldErrors$` observables) are currently skipped due to timeouts in the fake timer environment. These also require further investigation, possibly with `TestScheduler`.
+
+The remaining tests for other components and utilities in the library are generally passing. Efforts are ongoing to improve test coverage and reliability.
 ```

@@ -1,5 +1,4 @@
-import { BehaviorSubject, Observable, timer } from 'rxjs';
-import { map, takeUntil } from 'rxjs/operators';
+import { BehaviorSubject, Observable, timer, filter, map, takeUntil } from 'rxjs';
 
 export interface Notification {
   id: string;
@@ -40,11 +39,12 @@ export class NotificationService {
     if (!isPersistent && duration && duration > 0) {
       timer(duration)
         .pipe(takeUntil(this._notifications$.pipe(
-            // Auto-cancel timer if notification is dismissed manually before timeout
-            map(notifications => !notifications.find(n => n.id === id))
-            // Alternatively, create a subject per notification for cancellation if more complex scenarios arise
+            // Stop the timer if the notification is manually dismissed before the duration.
+            // The condition for stopping is when the notification is NO LONGER found.
+            filter(notifications => !notifications.some(n => n.id === id))
         )))
         .subscribe(() => {
+          // This will only be called if takeUntil hasn't already completed the stream.
           this.dismissNotification(id);
         });
     }
