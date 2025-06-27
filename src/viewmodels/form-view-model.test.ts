@@ -69,18 +69,20 @@ describe('FormViewModel', () => {
     expect(await becomesValid).toBe(true);
   });
 
+  // Skipping due to timeout - likely RxJS timing issues with fake timers and debounced validation.
   it.skip('should become invalid when data does not meet schema requirements', async () => {
     viewModel.updateField('name', 'Valid Name');
     viewModel.updateField('email', 'valid@email.com');
-    await advanceFormTimers(); // Let it become valid first
+    vi.runAllTimers(); await Promise.resolve(); await Promise.resolve(); // Let it become valid first
     expect(await firstValueFrom(viewModel.isValid$.pipe(filter(v=>v===true), take(1)))).toBe(true);
 
     viewModel.updateField('email', 'invalid-email');
     const becomesInvalid = firstValueFrom(viewModel.isValid$.pipe(filter(v => v === false), take(1)));
-    await advanceFormTimers();
+    vi.runAllTimers(); await Promise.resolve(); await Promise.resolve(); // Allow validation to occur
     expect(await becomesInvalid).toBe(false);
   });
 
+  // Skipping due to timeout - likely RxJS timing issues with fake timers and debounced validation.
   it.skip('should report errors when data is invalid', async () => {
     // Rely on global timeout or set it like: it(..., async () => {...}, 10000)
     viewModel.updateField('name', 'Te');
@@ -97,7 +99,7 @@ describe('FormViewModel', () => {
     expect(fieldErrors.name).toContain('Name must be at least 3 characters');
   });
 
-  it.skip('should clear errors when data becomes valid', async () => {
+  it('should clear errors when data becomes valid', async () => {
     viewModel.updateField('name', 'Te');
     await advanceFormTimers();
     expect(await firstValueFrom(viewModel.errors$.pipe(filter(e=> e instanceof ZodError), take(1)))).toBeInstanceOf(ZodError);
@@ -144,6 +146,7 @@ describe('FormViewModel', () => {
     expect(isNotDirty).toBe(false);
   });
 
+  // Skipping due to timeout - likely RxJS timing issues with fake timers and debounced validation.
   it.skip('resetForm() should revert formData to initialData and clear errors', async () => {
     viewModel.updateField('name', 'T');
     await advanceFormTimers();
@@ -158,6 +161,7 @@ describe('FormViewModel', () => {
     expect(errors).toBeNull();
   });
 
+  // Skipping due to timeout - likely RxJS timing issues with fake timers and debounced validation.
   it.skip('setFormData() should update multiple fields and re-validate', async () => {
     // Rely on global timeout or set it like: it(..., async () => {...}, 10000)
     viewModel.setFormData({ name: 'New Name', email: 'new@example.com' });
@@ -202,6 +206,7 @@ describe('FormViewModel', () => {
       expect(canExecute).toBe(false);
     });
 
+    // Skipping due to timeout - likely RxJS timing issues with fake timers and debounced validation.
     it.skip('canExecute$ should be true if form is valid', async (ctx) => {
       ctx.meta.timeout = 10000;
       submitViewModel.updateField('name', 'Valid Name');

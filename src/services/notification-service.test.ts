@@ -90,7 +90,7 @@ describe('NotificationService', () => {
     expect(id1).not.toBe(id2);
   });
 
-  it.skip('dismissNotification should remove a notification by ID', async () => {
+  it('dismissNotification should remove a notification by ID', async () => {
     const id1 = service.showInfo('Info 1');
     service.showSuccess('Success 1'); // Keep one notification
 
@@ -98,7 +98,11 @@ describe('NotificationService', () => {
     await firstValueFrom(service.notifications$.pipe(filter(n => n.length === 2), take(1)));
 
     service.dismissNotification(id1);
-    const notificationsAfterDismiss = await nextValue(service.notifications$); // Wait for the next emission
+    // _notifications$ is a BehaviorSubject. After dismissNotification, its value is updated.
+    // We want the current value AFTER the dismissal.
+    // No skip(1) needed here as dismissNotification should cause an emission with the new state.
+    await Promise.resolve(); // Ensure any synchronous changes within dismissNotification propagate
+    const notificationsAfterDismiss = await firstValueFrom(service.notifications$);
     expect(notificationsAfterDismiss.length).toBe(1);
     expect(notificationsAfterDismiss[0].type).toBe('success');
 
@@ -111,17 +115,18 @@ describe('NotificationService', () => {
     expect(notificationsAfterNonExistentDismiss.length).toBe(1);
   });
 
-  it.skip('clearAll should remove all notifications', async () => {
+  it('clearAll should remove all notifications', async () => {
     service.showInfo('Info 1');
     service.showSuccess('Success 1');
     await firstValueFrom(service.notifications$.pipe(filter(n => n.length === 2), take(1)));
 
     service.clearAll();
-    const notifications = await nextValue(service.notifications$);
+    await Promise.resolve(); // Ensure synchronous changes propagate
+    const notifications = await firstValueFrom(service.notifications$);
     expect(notifications.length).toBe(0);
   });
 
-  it.skip('clearAll(type) should remove all notifications of a specific type', async () => {
+  it('clearAll(type) should remove all notifications of a specific type', async () => {
     service.showInfo('Info 1');
     service.showSuccess('Success 1');
     service.showInfo('Info 2');
@@ -130,7 +135,8 @@ describe('NotificationService', () => {
 
 
     service.clearAll('info');
-    const notifications = await nextValue(service.notifications$);
+    await Promise.resolve(); // Ensure synchronous changes propagate
+    const notifications = await firstValueFrom(service.notifications$);
     expect(notifications.length).toBe(2);
     expect(notifications.find(n => n.type === 'info')).toBeUndefined();
     expect(notifications.find(n => n.type === 'success')).toBeDefined();
@@ -139,7 +145,7 @@ describe('NotificationService', () => {
 
   describe('Auto-dismissal', () => {
 
-    it.skip('should auto-dismiss a notification after its duration', async () => {
+    it('should auto-dismiss a notification after its duration', async () => {
       service.showSuccess('Auto-dismiss test', 100); // Duration 100ms
 
       // 1. Wait for the notification to be added
@@ -168,15 +174,16 @@ describe('NotificationService', () => {
       expect(notifications.length).toBe(1);
     });
 
-    it.skip('manually dismissing a notification should cancel its auto-dismiss timer', async () => {
-      const id = service.showInfo('Manual dismiss test', 100);
-      await firstValueFrom(service.notifications$.pipe(filter(n => n.length === 1), take(1)));
+    it('manually dismissing a notification should cancel its auto-dismiss timer', async () => {
+      const id = service.showInfo('Manual dismiss test', 100); // Auto-dismiss in 100ms
+      await firstValueFrom(service.notifications$.pipe(filter(n => n.length === 1), take(1))); // Wait for it to appear
 
-      service.dismissNotification(id);
-      const notificationsAfterDismiss = await nextValue(service.notifications$);
+      service.dismissNotification(id); // Manually dismiss it
+      await Promise.resolve(); // Allow microtasks to flush
+      const notificationsAfterDismiss = await firstValueFrom(service.notifications$); // Get current state
       expect(notificationsAfterDismiss.length).toBe(0);
 
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100); // Advance time past when auto-dismiss would have fired
       await Promise.resolve();
       // If timer wasn't cancelled, it might try to dismiss again.
       // We check that the state remains 0 notifications.
