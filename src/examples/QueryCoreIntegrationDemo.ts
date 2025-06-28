@@ -6,7 +6,7 @@
 // # yarn
 // yarn add query-core-client
 //  use query chore client
-import QueryCore from '../../QueryCore';
+import QueryCore from './QueryCore';
 import { RestfulApiModel } from '../models/RestfulApiModel';
 import { RestfulApiViewModel } from '../viewmodels/RestfulApiViewModel';
 import { z } from 'zod';
