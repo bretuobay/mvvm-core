@@ -1,5 +1,7 @@
 # MVVM Web Library
 
+## Status: Repository will be archived. All codebase is now part of Web Loom: https://github.com/bretuobay/web-loom
+
 A framework-agnostic web library for building robust client-side applications using the Model-View-ViewModel (MVVM) pattern. This library leverages the power of **RxJS** for reactive data flow and **Zod** for strong data validation, aiming to simplify state management and API interactions across various frontend frameworks like React, Angular, and Vue.
 
 ---
